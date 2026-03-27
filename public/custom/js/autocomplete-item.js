@@ -22,9 +22,11 @@ function initItemAutocomplete(inputSelector, options = {}) {
                 data: {
                     search: request.term,
                     warehouse_id: options.warehouse_id || '',
+                    category_id: options.category_id || '',
                     party_id: options.party_id || '',
                     page: itemSearchPage,
                     request_from: options.request_from || '',
+                    stock_available: options.stock_available || 0,
                 },
                 success: function(data) {
                     let items = data.items || data;

@@ -153,6 +153,7 @@ class PartyController extends Controller
                 'status'            =>  $request->status,
                 'default_party'     =>  $request->default_party,
                 'currency_id'       =>  $request->currency_id,
+                'company_id'        =>  app('company')['id'],
             ];
             if($request->has('state_id')){
                 $recordsToSave['state_id'] = $request->state_id??null;
@@ -253,11 +254,13 @@ class PartyController extends Controller
         /**
          * party_type == customer then filter wholesale or retail customer
          * */
+        $isAdminRole = app('isAdminRole');
         $isWholesaleCustomer = $request->input('is_wholesale_customer');
+        
 
         $data = Party::query()->where('party_type', $partyType);
         return DataTables::of($data)
-                    ->filter(function ($query) use ($request, $isWholesaleCustomer) {
+                    ->filter(function ($query) use ($request, $isWholesaleCustomer, $isAdminRole) {
                         if ($request->has('search')) {
                             $searchTerm = $request->search['value'];
                             $query->where(function ($q) use ($searchTerm) {
@@ -271,6 +274,10 @@ class PartyController extends Controller
                         }
                         if($isWholesaleCustomer!==null){
                             $query->where('is_wholesale_customer', $isWholesaleCustomer);
+                        }
+                        
+                        if(!$isAdminRole) {
+                            $query->where('company_id', app('company')['id']);
                         }
                     })
                     ->addIndexColumn()

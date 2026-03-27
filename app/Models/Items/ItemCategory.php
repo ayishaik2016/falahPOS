@@ -21,6 +21,7 @@ class ItemCategory extends Model
         'name',
         'description',
         'status',
+        'company_id'
     ];
 
     /**

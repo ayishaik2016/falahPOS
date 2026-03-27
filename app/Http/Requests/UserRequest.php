@@ -36,6 +36,7 @@ class UserRequest extends FormRequest
             'first_name'                            => ['required', 'string', 'max:100'],
             'last_name'                             => ['required', 'string', 'max:100'],
             'role_id'                               => ['required'],
+            'store_id'                              => ['required'],
             'status'                                => ['required', 'max:1'],
             'mylogo'                                => ['nullable','image','mimes:jpeg,png,jpg,gif','max:1024'],
         ];

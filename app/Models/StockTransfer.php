@@ -34,6 +34,7 @@ class StockTransfer extends Model
         'unit_price',
         'total',
         'note',
+        'company_id'
     ];
 
     /**

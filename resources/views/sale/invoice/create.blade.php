@@ -71,7 +71,7 @@
                                                 </div>
                                             </div>
                                             @endif
-
+                                            
                                             @if(app('company')['tax_type'] == 'gst')
                                             <div class="col-md-4">
                                                 <x-label for="state_id" name="{{ __('app.state_of_supply') }}" />

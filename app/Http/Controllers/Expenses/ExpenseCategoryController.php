@@ -57,6 +57,7 @@ class ExpenseCategoryController extends Controller
 
         // Get the validated data from the categoryRequest
         $validatedData = $request->validated();
+        $validatedData['company_id'] = app('company')['id'];
 
         // Create a new category record using Eloquent and save it
         $newExpense = ExpenseCategory::create($validatedData);
@@ -111,43 +112,48 @@ class ExpenseCategoryController extends Controller
     }
 
     public function datatableList(Request $request){
-
+        $isAdminRole = app('isAdminRole');
         $data = ExpenseCategory::with('user');
 
         return DataTables::of($data)
-                    ->addIndexColumn()
-                    ->addColumn('created_at', function ($row) {
-                        return $row->created_at->format(app('company')['date_format']);
-                    })
-                    ->addColumn('username', function ($row) {
-                        return $row->user->username??'';
-                    })
-                    ->addColumn('group_name', function ($row) {
-                        return $row->group->name;
-                    })
-                    ->addColumn('action', function($row){
-                            $id = $row->id;
+            ->filter(function ($query) use ($request, $isAdminRole) { 
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
+            ->addIndexColumn()
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at->format(app('company')['date_format']);
+            })
+            ->addColumn('username', function ($row) {
+                return $row->user->username??'';
+            })
+            ->addColumn('group_name', function ($row) {
+                return $row->group->name;
+            })
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                            $editUrl = route('expense.category.edit', ['id' => $id]);
-                            $deleteUrl = route('expense.category.delete', ['id' => $id]);
+                    $editUrl = route('expense.category.edit', ['id' => $id]);
+                    $deleteUrl = route('expense.category.delete', ['id' => $id]);
 
 
-                            $actionBtn = '<div class="dropdown ms-auto">
-                            <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>
-                            </ul>
-                        </div>';
-                            return $actionBtn;
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>
+                    </ul>
+                </div>';
+                    return $actionBtn;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     public function delete(Request $request) : JsonResponse{

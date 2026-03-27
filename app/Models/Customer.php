@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use App\Models\Order;
 use App\Models\User;
+use App\Traits\HasStoreScope;
 //use App\Models\Customer;
 
 class Customer extends Model
 {
-    use HasFactory;
+    use HasFactory, HasStoreScope;
     /**
      * The attributes that are mass assignable.
      *
@@ -26,6 +27,7 @@ class Customer extends Model
         'whatsapp',
         'address',
         'status',
+        'store_id',
     ];
 
     /**

@@ -21,18 +21,18 @@
 				</li>
 
 				<!-- @if(is_null(auth()->user()->company_id)) -->
-					@canany(['client.create', 'client.view'])
+					@canany(['client.create', 'client.list'])
 						<li>
 							<a href="javascript:;" class="has-arrow">
 								<div class="parent-icon"><i class="bx bx-buildings"></i></div>
 								<div class="menu-title">{{ __('client.clients') }}</div>
 							</a>
 							<ul>
-								@can('client.view')    
+								@can('client.list')    
 									<li class="{{ request()->is('client/list', 'client/create', 'client/edit*') ? 'mm-active' : '' }}">
-										<a href="{{ route('client.view') }}"><i class='bx bx-radio-circle'></i>{{ __('client.list') }}</a>
+										<a href="{{ route('client.list') }}"><i class='bx bx-radio-circle'></i>{{ __('client.list') }}</a>
 									</li>
-								@endcanany
+								@endcan
 							</ul>
 						</li>
 					@endcanany
@@ -70,6 +70,7 @@
 					</ul>
 				</li>
 				@endcanany
+
 
 				@canany(['sale.invoice.view', 'sale.order.view', 'sale.return.view', 'sale.quotation.view'])
 				<li>
@@ -180,10 +181,6 @@
 				@endcanany
 				--}}
 
-
-
-
-
 				@canany(['item.create', 'item.view', 'item.category.create', 'item.category.view', 'item.brand.create', 'item.brand.view'])
 				<li>
 					<a href="javascript:;" class="has-arrow">
@@ -238,7 +235,7 @@
 				@endcanany
 				--}}
 
-                @canany(['stock_transfer.view', 'stock_adjustment.view'])
+                @canany(['stock_transfer.view', 'stock_adjustment.view', 'item.dispatch.view'])
 				<li>
 					<a href="javascript:;" class="has-arrow">
 						<div class="parent-icon"><i class="bx bx-intersect"></i>
@@ -870,7 +867,8 @@
 				@endcanany
 
                 <li class="menu-label">OTHER</li>
-
+				
+				@if(app('isAdminRole'))
                 <li class="bg-light">
 					<a href="javascript:void(0);" id="clearCache">
 						<div class="parent-icon text-primary"><i class='bx bx-refresh '></i>
@@ -878,6 +876,7 @@
 						<div class="menu-title">{{ __('app.clear_cache') }}</div>
 					</a>
 				</li>
+				@endif
 
 				@if(config('demo.enabled'))
 				<li class="bg-light">

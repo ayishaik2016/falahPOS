@@ -189,6 +189,7 @@ class ExpenseController extends Controller
             DB::beginTransaction();
             // Get the validated data from the expenseRequest
             $validatedData = $request->validated();
+            $validatedData['company_id'] = app('company')['id'];
 
             if($request->operation == 'save'){
                 // Create a new expense record using Eloquent and save it
@@ -209,6 +210,7 @@ class ExpenseController extends Controller
                     'note'                  => $validatedData['note'],
                     'round_off'             => $validatedData['round_off'],
                     'grand_total'           => $validatedData['grand_total'],
+                    'company_id'            => app('company')['id']
                 ];
                 // First, find the expense
                 $newExpense = Expense::findOrFail($validatedData['expense_id']);
@@ -387,6 +389,7 @@ class ExpenseController extends Controller
                 'unit_price'                => $request->unit_price[$i],
                 'quantity'                  => $itemQuantity,
                 'total'                     => $request->total[$i],
+                'company_id'                => app('company')['id']
             ];
 
             if(!ExpenseItem::create($itemsArray)){
@@ -419,75 +422,80 @@ class ExpenseController extends Controller
     }
 
     public function datatableList(Request $request){
-
+        $isAdminRole = app('isAdminRole');
         $data = Expense::with('user', 'paymentTransaction.paymentType','category', 'subcategory')
-                        ->when($request->expense_category_id, function ($query) use ($request) {
-                            return $query->where('expense_category_id', $request->expense_category_id);
-                        })
-                        ->when(!auth()->user()->can('expense.can.view.other.users.expenses'), function ($query) use ($request) {
-                            return $query->where('created_by', auth()->user()->id);
-                        });
+            ->when($request->expense_category_id, function ($query) use ($request) {
+                return $query->where('expense_category_id', $request->expense_category_id);
+            })
+            ->when(!auth()->user()->can('expense.can.view.other.users.expenses'), function ($query) use ($request) {
+                return $query->where('created_by', auth()->user()->id);
+            });
 
         return DataTables::of($data)
-                    ->addIndexColumn()
-                    ->addColumn('created_at', function ($row) {
-                        return $row->created_at->format(app('company')['date_format']);
-                    })
-                    ->addColumn('username', function ($row) {
-                        return $row->user->username??'';
-                    })
-                    ->addColumn('expense_date', function ($row) {
-                        return $row->formatted_expense_date;
-                    })
-                    ->addColumn('paid_amount', function ($row) {
-                        return $this->formatWithPrecision($row->paid_amount);
-                    })
-                    ->addColumn('expense_number', function ($row) {
-                        return $row->expense_code;
-                    })
-                    ->addColumn('payment_type', function ($row) {
-                        return $row->paymentTransaction->pluck('paymentType.name')->implode(', ');
-                    })
-                    ->addColumn('expense_category', function ($row) {
-                        return $row->category->name;
-                    })
-                    ->addColumn('expense_subcategory', function ($row) {
-                        return $row->subcategory->name??'';
-                    })
-                    ->addColumn('action', function($row){
-                            $id = $row->id;
+            ->filter(function ($query) use ($request, $isAdminRole) { 
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
+            ->addIndexColumn()
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at->format(app('company')['date_format']);
+            })
+            ->addColumn('username', function ($row) {
+                return $row->user->username??'';
+            })
+            ->addColumn('expense_date', function ($row) {
+                return $row->formatted_expense_date;
+            })
+            ->addColumn('paid_amount', function ($row) {
+                return $this->formatWithPrecision($row->paid_amount);
+            })
+            ->addColumn('expense_number', function ($row) {
+                return $row->expense_code;
+            })
+            ->addColumn('payment_type', function ($row) {
+                return $row->paymentTransaction->pluck('paymentType.name')->implode(', ');
+            })
+            ->addColumn('expense_category', function ($row) {
+                return $row->category->name;
+            })
+            ->addColumn('expense_subcategory', function ($row) {
+                return $row->subcategory->name??'';
+            })
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                            $editUrl = route('expense.edit', ['id' => $id]);
-                            $deleteUrl = route('expense.delete', ['id' => $id]);
-                            $detailsUrl = route('expense.details', ['id' => $id]);
-                            $printUrl = route('expense.print', ['id' => $id]);
-                            $pdfUrl = route('expense.pdf', ['id' => $id]);
+                    $editUrl = route('expense.edit', ['id' => $id]);
+                    $deleteUrl = route('expense.delete', ['id' => $id]);
+                    $detailsUrl = route('expense.details', ['id' => $id]);
+                    $printUrl = route('expense.print', ['id' => $id]);
+                    $pdfUrl = route('expense.pdf', ['id' => $id]);
 
-                            $actionBtn = '<div class="dropdown ms-auto">
-                            <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-receipt"></i> '.__('app.details').'</a>
-                                </li>
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
-                                </li>
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>
-                            </ul>
-                        </div>';
-                            return $actionBtn;
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-receipt"></i> '.__('app.details').'</a>
+                        </li>
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
+                        </li>
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>
+                    </ul>
+                </div>';
+                    return $actionBtn;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     public function delete(Request $request) : JsonResponse{

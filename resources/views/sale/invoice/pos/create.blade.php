@@ -1,6 +1,15 @@
 @extends('layouts.app-pos')
 @section('title', __('sale.pos'))
 
+@php
+    $itemTotalUpdatePermission = false;
+    if(auth()->user()->can('sale.invoice.total.update')) {
+        $itemTotalUpdatePermission = true;
+    }
+
+    $themeBgColor = $themeBgColor ?? 'bg-white';
+@endphp
+
 @section('css')
 <link rel="stylesheet" href="{{ versionedAsset('custom/css/pos.css') }}"/>
 @endsection
@@ -53,7 +62,7 @@
             <div class="page-wrapper-1">
                 <div class="container-fluid mt-5">
                     <div class="row">
-                        <div class="col-sm-12 col-md-5 mb-3">
+                        <div class="col-sm-12 col-md-5 mb-3" id="item_search">
                             <div class="mb-3">
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
@@ -68,7 +77,7 @@
                                 </div>
                                 <div class="row">
                                     <div class="col-md-6 mb-3">
-                                        <x-dropdown-item-category selected="" :isMultiple="false" :showSelectOptionAll="true" />
+                                        <x-dropdown-item-category selected="" :isMultiple="false" :showSelectOptionAll="false" selectedCategories="{{ 'sale_category' }}" />
                                     </div>
                                     <div class="col-md-6 mb-3">
                                         <x-dropdown-brand selected="" :showSelectOptionAll='true' name="item_brand_id"/>
@@ -124,18 +133,24 @@
                                                             <th scope="col">{{ __('app.action') }}</th>
                                                             <th scope="col">{{ __('item.item') }}</th>
                                                             <th scope="col" class="{{ !app('company')['enable_serial_tracking'] ? 'd-none':'' }}">{{ __('item.serial') }}</th>
-                                                            <th scope="col" class="{{ !app('company')['enable_batch_tracking'] ? 'd-none':'' }}">{{ __('item.batch_no') }}</th>
-                                                            <th scope="col" class="{{ !app('company')['enable_mfg_date'] ? 'd-none':'' }}">{{ __('item.mfg_date') }}</th>
-                                                            <th scope="col" class="{{ !app('company')['enable_exp_date'] ? 'd-none':'' }}">{{ __('item.exp_date') }}</th>
+                                                            @if(auth()->user()->can('sale.invoice.additional.fields'))
+                                                                <th scope="col" class="{{ !app('company')['enable_batch_tracking'] ? 'd-none':'' }}">{{ __('item.batch_no') }}</th>
+                                                                <th scope="col" class="{{ !app('company')['enable_mfg_date'] ? 'd-none':'' }}">{{ __('item.mfg_date') }}</th>
+                                                                <th scope="col" class="{{ !app('company')['enable_exp_date'] ? 'd-none':'' }}">{{ __('item.exp_date') }}</th>
+                                                            @endif
                                                             <th scope="col" class="{{ !app('company')['enable_model'] ? 'd-none':'' }}">{{ __('item.model_no') }}</th>
-                                                            <th scope="col" class="{{ !app('company')['show_mrp'] ? 'd-none':'' }}">{{ __('item.mrp') }}</th>
+                                                            @if(auth()->user()->can('sale.invoice.additional.fields'))
+                                                                <th scope="col" class="{{ !app('company')['show_mrp'] ? 'd-none':'' }}">{{ __('item.mrp') }}</th>
+                                                            @endif
                                                             <th scope="col" class="{{ !app('company')['enable_color'] ? 'd-none':'' }}">{{ __('item.color') }}</th>
                                                             <th scope="col" class="{{ !app('company')['enable_size'] ? 'd-none':'' }}">{{ __('item.size') }}</th>
                                                             <th scope="col" class="col-md-1">{{ __('app.qty') }}</th>
                                                             <th scope="col">{{ __('unit.unit') }}</th>
                                                             <th scope="col">{{ __('app.price_per_unit') }}</th>
-                                                            <th scope="col" class="{{ !app('company')['show_discount'] ? 'd-none':'' }}">{{ __('app.discount') }}</th>
-                                                            <th scope="col" class="{{ (app('company')['tax_type'] == 'no-tax') ? 'd-none':'' }}">{{ __('tax.tax') }}</th>
+                                                            @if(auth()->user()->can('sale.invoice.additional.fields'))
+                                                                <th scope="col" class="{{ !app('company')['show_discount'] ? 'd-none':'' }}">{{ __('app.discount') }}</th>
+                                                                <th scope="col" class="{{ (app('company')['tax_type'] == 'no-tax') ? 'd-none':'' }}">{{ __('tax.tax') }}</th>
+                                                            @endif
                                                             <th scope="col">{{ __('app.total') }}</th>
                                                         </tr>
                                                     </thead>
@@ -224,12 +239,14 @@
                                               <tr>
                                                  <td class="w-50">
                                                     <div class="form-check">
-                                                        <input class="form-check-input" type="checkbox" id="round_off_checkbox">
+                                                        @if($itemTotalUpdatePermission)
+                                                            <input class="form-check-input" type="checkbox" id="round_off_checkbox">
+                                                        @endif
                                                         <label class="form-check-label fw-bold cursor-pointer" for="round_off_checkbox">{{ __('app.round_off') }}</label>
                                                     </div>
                                                 </td>
                                                  <td class="w-50">
-                                                    <x-input type="text" additionalClasses="text-end cu_numeric round_off " name="round_off" :required="false" placeholder="Round-Off" value="0"/>
+                                                    <x-input type="text" additionalClasses="text-end cu_numeric round_off" name="round_off" :required="false" placeholder="Round-Off" value="0"  :readonly="!$itemTotalUpdatePermission"/>
                                                 </td>
                                               </tr>
                                               <tr>
@@ -285,6 +302,18 @@
         @endsection
 
 @section('js')
+
+<script>
+    let itemUpdatePermission = false;
+    let itemAdditionalFields = false;
+    @if(auth()->user()->can('sale.invoice.item.update'))
+        itemUpdatePermission = true;
+    @endif
+    @if(auth()->user()->can('sale.invoice.additional.fields'))
+        itemAdditionalFields = true;
+    @endif
+</script>
+
 <script src="{{ versionedAsset('custom/js/autocomplete-item.js') }}"></script>
 <script src="{{ versionedAsset('custom/js/sale/pos.js') }}"></script>
 
@@ -297,4 +326,5 @@
 <script src="{{ versionedAsset('custom/js/common/common.js') }}"></script>
 <script src="{{ versionedAsset('custom/js/modals/party/party.js') }}"></script>
 <script src="{{ versionedAsset('custom/js/modals/item/item.js') }}"></script>
+
 @endsection

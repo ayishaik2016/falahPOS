@@ -19,11 +19,7 @@ use App\Traits\FormatNumber;
 use Illuminate\Support\Facades\DB;
 use App\Services\ItemTransactionService;
 
-/**
- * CHANGES (multi-store):
- *  - store() auto-assigns store_id from logged-in user's active store
- *  - datatableList() and search bar scoped to active store's warehouses
- */
+
 class WarehouseController extends Controller
 {
     use FormatNumber;
@@ -35,39 +31,58 @@ class WarehouseController extends Controller
         $this->itemTransactionService = $itemTransactionService;
     }
 
-    public function create(): View
-    {
+    /**
+     * Create a new warehouse.
+     *
+     * @return \Illuminate\View\View
+     */
+    public function create(): View {
+
         return view('warehouse.create');
     }
 
-    public function edit(int $id): View
-    {
+    /**
+     * Edit a warehouse.
+     *
+     * @param int $id The ID of the warehouse to edit.
+     * @return \Illuminate\View\View
+     */
+    public function edit(int $id): View {
+
         $warehouse = Warehouse::findOrFail($id);
+
         return view('warehouse.edit', compact('warehouse'));
     }
-
     /**
-     * Store a new warehouse — auto-assigns active store_id.
-     */
-    public function store(WarehouseRequest $request): JsonResponse
-    {
+     * Return JsonResponse
+     * */
+    public function store(WarehouseRequest $request) : JsonResponse {
+
+        // Get the validated data from the WarehouseRequest
         $validatedData = $request->validated();
 
-        // Inject the active store_id
         $validatedData['store_id'] = auth()->user()->getActiveStoreId();
+        $validatedData['company_id'] = app('company')['id'];
 
         $warehouse = Warehouse::create($validatedData);
 
         return response()->json([
             'status'  => true,
             'message' => __('app.record_saved_successfully'),
-            'data'    => ['id' => $warehouse->id, 'name' => $warehouse->name],
+            'data'  => [
+                'id' => $warehouse->id,
+                'name' => $warehouse->name,
+            ]
         ]);
     }
 
-    public function update(WarehouseRequest $request): JsonResponse
-    {
+    /**
+     * Return JsonResponse
+     * */
+    public function update(WarehouseRequest $request) : JsonResponse {
         $validatedData = $request->validated();
+
+        // Save the tax details
         Warehouse::where('id', $validatedData['id'])->update($validatedData);
 
         return response()->json([
@@ -81,20 +96,17 @@ class WarehouseController extends Controller
             'type'    => 'info',
             'status'  => 'Information',
             'message' => "The warehouse serves the primary purpose of maintaining stock levels...",
-        ]]);
+                                ]]);
         return view('warehouse.list');
     }
 
-    /**
-     * DataTable list — scoped to current user's active store.
-     */
-    public function datatableList(Request $request): mixed
-    {
+    public function datatableList(Request $request){
+        $isAdminRole = app('isAdminRole');
         $user        = auth()->user();
         $storeId     = $user->getActiveStoreId();
         $warehouseIds = $user->getAccessibleWarehouses()->pluck('id');
 
-        $data = Warehouse::whereIn('id', $warehouseIds);
+         $data = Warehouse::whereIn('id', $warehouseIds);
 
         // Further scope to active store (in case user has cross-store access)
         if ($storeId) {
@@ -102,6 +114,11 @@ class WarehouseController extends Controller
         }
 
         return DataTables::of($data)
+            ->filter(function ($query) use ($request, $isAdminRole) { 
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
             ->addIndexColumn()
             ->addColumn('created_at', function ($row) {
                 return $row->created_at->format(app('company')['date_format']);
@@ -113,99 +130,106 @@ class WarehouseController extends Controller
                 return $row->store->name ?? '—';
             })
             ->addColumn('total_items', function ($row) {
-                return ItemGeneralQuantity::where('warehouse_id', $row->id)
-                    ->where('quantity', '>', 0)->distinct('item_id')->count('item_id');
+                $totalItems = ItemGeneralQuantity::where('warehouse_id', $row->id)->where('quantity', '>', 0)->distinct('item_id')->count('item_id');
+                return $totalItems;
             })
             ->addColumn('available_stock', function ($row) {
                 $quantity = ItemGeneralQuantity::where('warehouse_id', $row->id)->sum('quantity');
                 return $this->formatQuantity($quantity);
             })
             ->addColumn('worth_cost', function ($row) {
-                $details = $this->itemTransactionService->worthItemsDetails($row->id);
-                $row->worthItemsDetails = $details;
-                return $this->formatWithPrecision($details['totalPurchaseCost']);
+                $worthItemsDetails = $this->itemTransactionService->worthItemsDetails($row->id);
+                // Store details in the row object for later use in worth_sale_price
+                $row->worthItemsDetails = $worthItemsDetails;
+                return $this->formatWithPrecision($worthItemsDetails['totalPurchaseCost']);
             })
             ->addColumn('worth_sale_price', function ($row) {
                 return $this->formatWithPrecision($row->worthItemsDetails['totalSalePrice']);
             })
             ->addColumn('worth_profit', function ($row) {
-                return $this->formatWithPrecision(
-                    $row->worthItemsDetails['totalSalePrice'] - $row->worthItemsDetails['totalPurchaseCost']
-                );
+                return $this->formatWithPrecision($row->worthItemsDetails['totalSalePrice'] - $row->worthItemsDetails['totalPurchaseCost']);
             })
-            ->addColumn('action', function ($row) {
-                $editUrl   = route('warehouse.edit',   ['id' => $row->id]);
-                $deleteUrl = route('warehouse.delete');
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                $actionBtn = '
-                    <div class="dropdown ms-auto">
-                        <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown">
-                            <i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                        </a>
-                        <ul class="dropdown-menu">
-                            <li>
-                                <a class="dropdown-item" href="'.$editUrl.'">
-                                    <i class="bx bx-edit"></i> '.__('app.edit').'
-                                </a>
-                            </li>';
+                    $editUrl = route('warehouse.edit', ['id' => $id]);
+                    $deleteUrl = route('warehouse.delete', ['id' => $id]);
 
-                if ($row->is_deletable) {
-                    $actionBtn .= '
-                            <li>
-                                <button type="button" class="dropdown-item text-danger deleteRequest"
-                                        data-delete-id="'.$row->id.'">
-                                    <i class="bx bx-trash"></i> '.__('app.delete').'
-                                </button>
-                            </li>';
-                }
 
-                $actionBtn .= '</ul></div>';
-                return $actionBtn;
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">';
+                        $actionBtn .= '<li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>';
+                        $actionBtn .= ($row->is_deletable==0)? '' : '<li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest " data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>';
+                    $actionBtn .= '</ul>
+                </div>';
+                    return $actionBtn;
             })
             ->rawColumns(['action'])
             ->make(true);
     }
 
-    public function delete(Request $request): JsonResponse
-    {
-        $ids = $request->input('record_ids');
+    public function delete(Request $request) : JsonResponse{
 
-        try {
-            Warehouse::whereIn('id', $ids)->where('is_deletable', 1)->delete();
-        } catch (QueryException $e) {
+        $selectedRecordIds = $request->input('record_ids');
+
+        /**
+         * All selected record IDs are valid, proceed with the deletion
+         * Delete all records with the selected IDs in one query
+         * */
+        try{
+            Warehouse::whereIn('id', $selectedRecordIds)->where('is_deletable', 1)->delete();
+        }catch (QueryException $e){
             return response()->json(['message' => __('app.cannot_delete_records')], 422);
         }
 
         return response()->json([
-            'status'  => true,
+            'status'    => true,
             'message' => __('app.record_deleted_successfully'),
         ]);
     }
 
     /**
-     * Ajax search bar — scoped to active store's warehouses.
-     */
-    public function getAjaxWarehouseSearchBarList(): string
-    {
-        $search  = request('search');
-        $user    = auth()->user();
+     * Ajax Response
+     * Search for Select2 Bar list
+     * */
+    function getAjaxWarehouseSearchBarList(){
+        $search = request('search');
+
+        $user = auth()->user();
         $storeId = $user->getActiveStoreId();
 
-        $items = Warehouse::where(function ($query) use ($search) {
+        $items = Warehouse::where(function($query) use ($search) {
                         $query->whereRaw('UPPER(name) LIKE ?', ['%' . strtoupper($search) . '%']);
                     })
                     ->when($storeId, function ($query) use ($storeId) {
                         $query->where('store_id', $storeId);
                     })
-                    ->when(!$user->is_allowed_all_warehouses, function ($query) use ($user) {
-                        $warehouseIds = \App\Models\UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id');
-                        $query->whereIn('id', $warehouseIds);
+                    ->when(!$user->is_allowed_all_warehouses, function($query) use ($user){
+                        $warehouseIds = UserWarehouse::where('user_id', $user->id)->pluck('warehouse_id');
+                        $query->whereIn('id', $warehouseIds)->get();
                     })
                     ->select('id', 'name')
                     ->get();
 
-        return json_encode([
-            'results' => $items->map(fn($item) => ['id' => $item->id, 'text' => $item->name])->toArray(),
-        ]);
+        $response = [
+            'results' => $items->map(function ($item) {
+                return [
+                    'id' => $item->id,
+                    'text' => $item->name,
+                ];
+            })->toArray(),
+        ];
+        return json_encode($response);
     }
+
+
+
+
+
 }

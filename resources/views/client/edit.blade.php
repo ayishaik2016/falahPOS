@@ -83,7 +83,7 @@
                                     <div class="col-md-12">
                                         <div class="d-md-flex d-grid align-items-center gap-3">
                                             <x-button type="submit" class="primary px-4" text="{{ __('app.submit') }}" />
-                                            <x-anchor-tag href="{{ route('client.view') }}" text="{{ __('app.close') }}" class="btn btn-light px-4" />
+                                            <x-anchor-tag href="{{ route('client.list') }}" text="{{ __('app.close') }}" class="btn btn-light px-4" />
                                         </div>
                                     </div>
                                 </form>

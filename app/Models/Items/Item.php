@@ -12,10 +12,11 @@ use App\Models\User;
 use App\Models\Unit;
 use App\Models\Items\ItemCategory;
 use App\Models\Items\ItemGeneralQuantity;
+use App\Traits\HasStoreScope;
 
 class Item extends Model
 {
-    use HasFactory;
+    use HasFactory, HasStoreScope;
 
     /**
      * The attributes that are mass assignable.
@@ -58,6 +59,8 @@ class Item extends Model
         'status',
 
         'brand_id',
+        'company_id',
+        'store_id'
     ];
 
     /**

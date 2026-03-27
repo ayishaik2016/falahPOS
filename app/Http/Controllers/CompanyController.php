@@ -21,8 +21,8 @@ class CompanyController extends Controller
     }
 
     public function index(){
-        $company = Company::findOrNew($this->companyId);
-        $prefix = Prefix::findOrNew($this->companyId);
+        $company = Company::findOrNew(app('company')['id']);
+        $prefix = Prefix::findOrNew(app('company')['id']);
         return view('company.edit', compact('company','prefix'));
     }
 
@@ -30,7 +30,7 @@ class CompanyController extends Controller
         $validatedData = $request->validated();
 
         // Save the application settings
-        $settings = Company::findOrNew($this->companyId);
+        $settings = Company::findOrNew(app('company')['id']);
         $settings->name = $validatedData['name'];
         $settings->email = $validatedData['email'];
         $settings->mobile = $validatedData['mobile'];
@@ -57,7 +57,7 @@ class CompanyController extends Controller
         $validatedData = $request->validated();
 
         // Save the company general settings
-        $settings = Company::findOrNew($this->companyId);
+        $settings = Company::findOrNew(app('company')['id']);
         $settings->number_precision = $validatedData['number_precision'];
         $settings->quantity_precision = $validatedData['quantity_precision'];
         $settings->show_discount = (bool) $request->has('show_discount');
@@ -74,7 +74,7 @@ class CompanyController extends Controller
 
     public function itemUpdate(Request $request) : JsonResponse{
         // Save the company general settings
-        $settings = Company::findOrNew($this->companyId);
+        $settings = Company::findOrNew(app('company')['id']);
         $settings->tax_type = $request['tax_type'];
         $settings->show_sku = $request->has('show_sku') ? 1 : 0;
         $settings->show_hsn = $request->has('show_hsn') ? 1 : 0;
@@ -126,7 +126,7 @@ class CompanyController extends Controller
 
     public function printUpdate(Request $request) : JsonResponse{
         // Save the company print invoice settings
-        $settings = Company::findOrNew($this->companyId);
+        $settings = Company::findOrNew(app('company')['id']);
         $settings->show_tax_summary = $request->has('show_tax_summary') ? 1 : 0;
         $settings->show_terms_and_conditions_on_invoice = $request->has('show_terms_and_conditions_on_invoice') ? 1 : 0;
         $settings->show_signature_on_invoice = $request->has('show_signature_on_invoice') ? 1 : 0;
@@ -148,7 +148,7 @@ class CompanyController extends Controller
 
     public function moduleUpdate(Request $request) : JsonResponse{
         // Save the company print invoice settings
-        $settings = Company::findOrNew($this->companyId);
+        $settings = Company::findOrNew(app('company')['id']);
         $settings->is_enable_crm = $request->has('is_enable_crm') ? 1 : 0;
         $settings->is_enable_carrier = $request->has('is_enable_carrier') ? 1 : 0;
         $settings->save();

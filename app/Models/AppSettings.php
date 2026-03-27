@@ -24,6 +24,7 @@ class AppSettings extends Model
         'light_logo',
         'active_sms_api',
         'language_id',
+        'company_id',
     ];
 
     /**

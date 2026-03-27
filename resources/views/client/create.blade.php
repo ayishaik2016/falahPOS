@@ -81,7 +81,11 @@
                                         <x-label for="store_name" name="{{ __('client.store_name') }}" />
                                         <x-input type="text" name="store_name" :required="true" value=""/>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-3">
+                                        <x-label for="store_code" name="{{ __('app.store_code') }}" />
+                                        <x-input type="text" name="store_code" placeholder="e.g. STR-001" :required="true" value=""/>
+                                    </div>
+                                    <div class="col-md-3">
                                         <x-label for="status" name="{{ __('app.status') }}" />
                                         <x-dropdown-status selected="" dropdownName='status'/>
                                     </div>
@@ -89,7 +93,7 @@
                                     <div class="col-md-12">
                                         <div class="d-md-flex d-grid align-items-center gap-3">
                                             <x-button type="submit" class="primary px-4" text="{{ __('app.submit') }}" />
-                                            <x-anchor-tag href="{{ route('client.view') }}" text="{{ __('app.close') }}" class="btn btn-light px-4" />
+                                            <x-anchor-tag href="{{ route('client.list') }}" text="{{ __('app.close') }}" class="btn btn-light px-4" />
                                         </div>
                                     </div>
                                 </form>

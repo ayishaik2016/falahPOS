@@ -40,7 +40,7 @@ $(function() {
     }
     function pageRedirect(formObject){
         var redirectTo = '/client/list';
-        setTimeout(function() {
+        setTimeout(function() { 
            location.href = baseURL + redirectTo;
         }, 1000);
     }
@@ -99,4 +99,32 @@ $(function() {
             $("#"+formId)[0].reset();
         }
     }
-});
+
+    /**
+     * Image Browse & Reset
+     * */
+    function loadImageBrowser(uploadedImage, accountFileInput, accountImageReset) {
+        if (uploadedImage.length) {
+            const avatarSrc = uploadedImage.attr("src");
+
+            accountFileInput.on("change", function() {
+              if (accountFileInput[0].files[0]) {
+
+                uploadedImage.attr("src", window.URL.createObjectURL(accountFileInput[0].files[0]));
+              }
+            });
+
+            accountImageReset.on("click", function() {
+              accountFileInput[0].value = "";
+              uploadedImage.attr("src", avatarSrc);
+            });
+        }
+
+    }
+
+    $(document).ready(function() {
+        loadImageBrowser($("#uploaded-image-1"), $(".input-box-class-1"), $(".image-reset-class-1"));
+        loadImageBrowser($("#uploaded-image-2"), $(".input-box-class-2"), $(".image-reset-class-2"));
+    });
+});//main function
+

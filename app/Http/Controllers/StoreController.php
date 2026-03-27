@@ -73,7 +73,7 @@ class StoreController extends Controller
             })
             ->addColumn('action', function ($row) {
                 $editUrl   = route('store.edit',   ['id'       => $row->id]);
-                $switchUrl = route('store.switch', ['store_id' => $row->id]);
+                $switchUrl = route('store.defaultStore', ['client_id' => $row->client_id, 'store_id' => $row->id]);
 
                 return '
                     <div class="dropdown ms-auto">
@@ -88,7 +88,7 @@ class StoreController extends Controller
                             </li>
                             <li>
                                 <a class="dropdown-item" href="'.$switchUrl.'">
-                                    <i class="bx bx-store"></i> '.__('app.switch_to_store').'
+                                    <i class="bx bx-store"></i> '.__('app.set_as_default').'
                                 </a>
                             </li>
                             <li>
@@ -114,18 +114,8 @@ class StoreController extends Controller
             'name'      => 'required|string|max:255',
             'code'      => 'nullable|string|max:100',
             'address'   => 'nullable|string',
-            'mobile'    => 'nullable|string|max:255',
-            'email'     => 'nullable|email|max:255',
             'status'    => 'required|in:0,1',
             'is_default'=> 'sometimes|boolean',
-        ]);
-
-        // Create the Company profile for this store
-        $company = Company::create([
-            'name'    => $validated['name'],
-            'email'   => $validated['email']   ?? '',
-            'mobile'  => $validated['mobile']  ?? '',
-            'address' => $validated['address'] ?? '',
         ]);
 
         // If this is set as default, unset others for the same client
@@ -136,7 +126,7 @@ class StoreController extends Controller
 
         $store = Store::create([
             'client_id'  => $validated['client_id'],
-            'company_id' => $company->id,
+            'company_id' => $validated['company_id'],
             'name'       => $validated['name'],
             'code'       => $validated['code']    ?? null,
             'address'    => $validated['address'] ?? null,
@@ -215,9 +205,28 @@ class StoreController extends Controller
     /**
      * Switch the active store for the current session.
      */
+    public function defaultStore(int $clientId, int $storeId): \Illuminate\Http\RedirectResponse
+    {
+        $user = auth()->user();
+        $companyId = app('company')['id'];
+         Store::where('client_id', $clientId)
+                 ->where('id', '=', $storeId)
+                 ->update(['is_default' => 1]);
+
+        Store::where('client_id', $clientId)
+                 ->where('id', '!=', $storeId)
+                 ->update(['is_default' => 0]);
+
+        return redirect()->back()->with('success', __('app.default_store_updated_successfully'));
+    }
+
+    /**
+     * Switch the active store for the current session.
+     */
     public function switchStore(int $storeId): \Illuminate\Http\RedirectResponse
     {
         $user = auth()->user();
+
 
         // Verify access
         $hasAccess = $user->stores()->where('stores.id', $storeId)->exists();

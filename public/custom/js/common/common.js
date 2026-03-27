@@ -43,6 +43,7 @@ function initSelect2Parties() {
                             id: item.id,
                             text: item.text,
                             mobile: item.mobile,
+                            avatar: item.avatar,
                             is_wholesale_customer: item.is_wholesale_customer,
                             to_pay: item.to_pay,
                             to_receive: item.to_receive,
@@ -79,6 +80,7 @@ function initSelect2Parties() {
             return $(
                 `<div>
                     <span class='fs-4'>${data.text}</span><br>
+                    <img src="${data.avatar}">
                     ${balanceText}, <small class="">${bottomText + '<i class="fadeIn text-primary bx bx-mobile"></i> ' + (data.mobile ? data.mobile : '-')}</small>
                 </div>`
             );

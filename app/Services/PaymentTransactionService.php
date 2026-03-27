@@ -45,6 +45,7 @@ class PaymentTransactionService{
                     'note'                      =>  $data['note'],
                     'reference_no'              =>  $data['reference_no']??null,
                     'payment_from_unique_code'  =>  $data['payment_from_unique_code']??null,
+                    'company_id'                =>  app('company')['id']
                 ]
             );
         if(!$this->recordChequePaymentTransaction($transaction)){

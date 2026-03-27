@@ -39,6 +39,39 @@
 
                 </ul>
             </div>
+            
+            @if(!app('isAdminRole'))
+                @php
+                    $activeStoreId = auth()->user()->getActiveStoreId();
+                    $activeStore = \App\Models\Store::find($activeStoreId);
+                    
+                    if (is_null(auth()->user()->company_id)) {
+                        $accessibleStores = \App\Models\Store::all();
+                    } else {
+                        $accessibleStores = \App\Models\Store::where('company_id', auth()->user()->company_id)->get();
+                    }
+                @endphp
+                @if($accessibleStores->count() > 0)
+                    <div class="user-box dropdown px-2" style="border-left: 1px solid #e2e8f0;">
+                        <a class="d-flex align-items-center nav-link dropdown-toggle gap-3 dropdown-toggle-nocaret" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-info">
+                                <p class="user-name mb-0">{{ $activeStore ? $activeStore->name : __('app.select_store') }}</p>
+                                <!-- <p class="designattion mb-0">{{ __('app.store') }}</p> -->
+                            </div>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            @foreach($accessibleStores as $store)
+                                <li>
+                                    <a class="dropdown-item d-flex align-items-center {{ $activeStoreId == $store->id ? 'bg-primary text-white' : '' }}" href="{{ route('store.switch', ['store_id' => $store->id]) }}">
+                                        <i class="bx bx-store fs-5"></i><span>{{ $store->name . ' - (' . $store->code . ')' }}</span>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+            @endif
+
             <div class="user-box dropdown px-3">
                 <a class="d-flex align-items-center nav-link dropdown-toggle gap-3 dropdown-toggle-nocaret" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <img src="{{ url('/users/getimage/' . auth()->user()->avatar) }}" class="user-img" alt="user avatar">

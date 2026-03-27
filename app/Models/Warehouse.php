@@ -7,22 +7,26 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * CHANGES (multi-store):
- *  - Added `store_id` to $fillable
- *  - Added `store()` BelongsTo relationship
- */
 class Warehouse extends Model
 {
     use HasFactory;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'name',
         'description',
         'status',
-        'store_id',     // NEW
+        'store_id', 
+        'company_id'
     ];
 
+    /**
+     * Insert & update User Id's
+     * */
     protected static function boot()
     {
         parent::boot();
@@ -52,6 +56,11 @@ class Warehouse extends Model
         });
     }
 
+    /**
+     * Define the relationship between Order and User.
+     *
+     * @return BelongsTo
+     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');

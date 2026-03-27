@@ -31,6 +31,7 @@ class StockAdjustment extends Model
         'reference_no',
         'adjustment_code',
         'note',
+        'company_id'
     ];
 
     /**

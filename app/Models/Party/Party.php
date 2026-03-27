@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use App\Models\User;
 use App\Models\Party\PartyTransaction;
 use App\Services\PartyService;
+use App\Traits\HasStoreScope;
 
 class Party extends Model
 {
-    use HasFactory;
+    use HasFactory, HasStoreScope;
     /**
      * The attributes that are mass assignable.
      *
@@ -40,6 +41,8 @@ class Party extends Model
         'is_wholesale_customer',
         'default_party',
         'currency_id',
+        'company_id',
+        'store_id'
     ];
 
     /**

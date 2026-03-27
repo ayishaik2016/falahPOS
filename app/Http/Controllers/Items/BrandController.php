@@ -56,7 +56,8 @@ class BrandController extends Controller
 
         // Get the validated data from the brandRequest
         $validatedData = $request->validated();
-
+        $validatedData['company_id'] = app('company')['id'];
+        
         // Create a new brand record using Eloquent and save it
         $newCategory = Brand::create($validatedData);
 
@@ -85,40 +86,45 @@ class BrandController extends Controller
     }
 
     public function datatableList(Request $request){
-
+        $isAdminRole = app('isAdminRole');
         $data = Brand::with('user');
 
         return DataTables::of($data)
-                    ->addIndexColumn()
-                    ->addColumn('created_at', function ($row) {
-                        return $row->created_at->format(app('company')['date_format']);
-                    })
-                    ->addColumn('username', function ($row) {
-                        return $row->user->username??'';
-                    })
-                    ->addColumn('action', function($row){
-                            $id = $row->id;
+            ->filter(function ($query) use ($request, $isAdminRole) { 
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
+            ->addIndexColumn()
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at->format(app('company')['date_format']);
+            })
+            ->addColumn('username', function ($row) {
+                return $row->user->username??'';
+            })
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                            $editUrl = route('item.brand.edit', ['id' => $id]);
-                            $deleteUrl = route('item.brand.delete', ['id' => $id]);
+                    $editUrl = route('item.brand.edit', ['id' => $id]);
+                    $deleteUrl = route('item.brand.delete', ['id' => $id]);
 
 
-                            $actionBtn = '<div class="dropdown ms-auto">
-                            <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                            </a>
-                            <ul class="dropdown-menu">';
-                                $actionBtn .= '<li>
-                                    <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
-                                </li>';
-                                $actionBtn .= '<li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest " data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>';
-                            $actionBtn .= '</ul>
-                        </div>';
-                            return $actionBtn;
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">';
+                        $actionBtn .= '<li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>';
+                        $actionBtn .= '<li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest " data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>';
+                    $actionBtn .= '</ul>
+                </div>';
+                    return $actionBtn;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     public function delete(Request $request) : JsonResponse{

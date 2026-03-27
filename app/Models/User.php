@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,31 +11,34 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\Role;
+use App\Models\UserWarehouse;
+use App\Models\OrderedProduct;
 
-/**
- * CHANGES (multi-store):
- *  - Added `store_id` to $fillable
- *  - Added `store()` BelongsTo relationship
- *  - Added `stores()` BelongsToMany via client_store_users
- *  - Updated `getAccessibleWarehouses()` to scope by store
- *  - Added `getActiveStoreId()` helper to resolve current store from session
- */
+
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, HasRoles;
 
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
     protected $fillable = [
         'first_name',
         'last_name',
         'username',
         'email',
         'password',
+        'username',
         'role_id',
+        'company_id',
         'status',
         'avatar',
         'mobile',
         'company_id',
-        'store_id',              // NEW: default store for this user
+        'store_id',             
         'is_allowed_all_warehouses',
     ];
 
@@ -59,7 +63,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password'          => 'hashed',
+        'password' => 'hashed',
     ];
 
     // ---------------------------------------------------------------
@@ -71,6 +75,17 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class, 'role_id');
     }
 
+    /**
+     * Join with roles table
+     * */
+    public function orderedProducts(): BelongsTo
+    {
+        return $this->belongsTo(OrderedProduct::class, 'assigned_user_id');
+    }
+
+    /**
+     * Join with user_warehouses table
+     * */
     public function userWarehouses(): HasMany
     {
         return $this->hasMany(UserWarehouse::class, 'user_id');
@@ -105,14 +120,14 @@ class User extends Authenticatable
      */
     public function getActiveStoreId(): ?int
     {
-        // Super admin — no store scoping
-        if (is_null($this->company_id)) {
-            return null;
-        }
-
         // Use session-selected store if set
         if (session()->has('active_store_id')) {
             return (int) session('active_store_id');
+        }
+
+        // Super admin — no store scoping
+        if (is_null($this->company_id)) {
+            return null;
         }
 
         return $this->store_id;

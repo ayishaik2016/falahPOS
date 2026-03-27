@@ -34,6 +34,7 @@ use App\Services\Communication\Sms\SaleSmsNotificationService;
 use App\Enums\ItemTransactionUniqueCode;
 use App\Models\Sale\Quotation;
 use Illuminate\Support\Facades\Storage;
+use App\Models\Currency;
 
 use Mpdf\Mpdf;
 
@@ -378,11 +379,14 @@ class SaleController extends Controller
         //Batch Tracking Row count for invoice columns setting
         $batchTrackingRowCount = (new GeneralDataService())->getBatchTranckingRowCount();
 
+        //Get Default currency
+        $currencyDetail = Currency::where('is_company_currency', 1)->first();
+
         $invoiceData = [
             'name' => __('sale.invoice'),
         ];
 
-        return view('print.sale.pos.print', compact('isPdf', 'invoiceData', 'sale','selectedPaymentTypesArray','batchTrackingRowCount'));
+        return view('print.sale.pos.print', compact('isPdf', 'invoiceData', 'sale','selectedPaymentTypesArray','batchTrackingRowCount', 'currencyDetail'));
 
     }
 
@@ -474,7 +478,6 @@ class SaleController extends Controller
      * */
     public function store(SaleRequest $request) : JsonResponse  {
         try {
-
             DB::beginTransaction();
             // Get the validated data from the expenseRequest
             $validatedData = $request->validated();
@@ -499,11 +502,11 @@ class SaleController extends Controller
                     'state_id'              => $validatedData['state_id'],
                     'currency_id'           => $validatedData['currency_id'],
                     'exchange_rate'         => $validatedData['exchange_rate'],
+                    'company_id'            => app('company')['id']
                 ];
 
                 $newSale = Sale::findOrFail($validatedData['sale_id']);
                 $newSale->update($fillableColumns);
-
                 /**
                 * Before deleting ItemTransaction data take the
                 * old data of the item_serial_master_id
@@ -547,9 +550,7 @@ class SaleController extends Controller
 
                 // $newSale->paymentTransaction()->delete();
             }
-
             $request->request->add(['modelName' => $newSale]);
-
             /**
              * Save Table Items in Sale Items Table
              * */
@@ -573,8 +574,6 @@ class SaleController extends Controller
             if($paidAmount < 0){
                 throw new \Exception(__('payment.paid_amount_should_not_be_less_than_zero'));
             }
-
-
 
             /**
              * Paid amount should not be greater than grand total
@@ -794,20 +793,19 @@ class SaleController extends Controller
             if(!isset($request->item_id[$i])){
                 continue;
             }
-
             /**
              * Data index start from 0
              * */
             $itemDetails = Item::find($request->item_id[$i]);
-            $itemName           = $itemDetails->name;
+            $itemName = $itemDetails->name;
 
             //validate input Quantity
             $itemQuantity       = $request->quantity[$i];
             if(empty($itemQuantity) || $itemQuantity === 0 || $itemQuantity < 0){
-                    return [
-                        'status' => false,
-                        'message' => ($itemQuantity<0) ? __('item.item_qty_negative', ['item_name' => $itemName]) : __('item.please_enter_item_quantity', ['item_name' => $itemName]),
-                    ];
+                return [
+                    'status' => false,
+                    'message' => ($itemQuantity<0) ? __('item.item_qty_negative', ['item_name' => $itemName]) : __('item.please_enter_item_quantity', ['item_name' => $itemName]),
+                ];
             }
 
             //Validate is negative stock entry allowed or not for General Item
@@ -826,31 +824,32 @@ class SaleController extends Controller
             //Auto-Update Item Master Sale Price
             $this->updateItemMasterSalePrice($request, $isWholesaleCustomer, $i);
 
-
             /**
              *
              * Item Transaction Entry
              * */
+
             $transaction = $this->itemTransactionService->recordItemTransactionEntry($request->modelName, [
                 'warehouse_id'              => $request->warehouse_id[$i],
                 'transaction_date'          => $request->sale_date,
                 'item_id'                   => $request->item_id[$i],
                 'description'               => $request->description[$i],
 
-                'tracking_type'             => $itemDetails->tracking_type,
+                'tracking_type'             => $itemDetails->tracking_type ?? '',
 
                 'quantity'                  => $itemQuantity,
                 'unit_id'                   => $request->unit_id[$i],
                 'unit_price'                => $request->sale_price[$i],
                 'mrp'                       => $request->mrp[$i]??0,
 
-                'discount'                  => $request->discount[$i],
-                'discount_type'             => $request->discount_type[$i],
-                'discount_amount'           => $request->discount_amount[$i],
+                'discount'                  => $request->discount[$i] ?? 0,
+                'discount_type'             => $request->discount_type[$i] ?? '',
+                'discount_amount'           => $request->discount_amount[$i] ?? 0,
 
-                'tax_id'                    => $request->tax_id[$i],
-                'tax_type'                  => $request->tax_type[$i],
-                'tax_amount'                => $request->tax_amount[$i],
+                'tax_id'                    => $request->tax_id[$i] ?? $itemDetails->tax_id,
+                'tax_type'                  => $request->tax_type[$i] ?? $itemDetails->tax->name,
+                // 'tax_type'                  => $itemDetails->tax_type,
+                'tax_amount'                => $request->tax_amount[$i] ?? 0,
 
                 'total'                     => $request->total[$i],
 
@@ -860,7 +859,7 @@ class SaleController extends Controller
             if(!$transaction){
                 throw new \Exception("Failed to record Item Transaction Entry!");
             }
-
+            
 
             /**
              * Tracking Type:
@@ -922,23 +921,17 @@ class SaleController extends Controller
             }
             else{
                 //Regular item transaction entry already done before if() condition
-
-
-
             }
-
-
         }//for end
 
         return ['status' => true];
     }
 
-
     /**
      * Datatabale
      * */
     public function datatableList(Request $request){
-
+         $isAdminRole = app('isAdminRole');
         $data = Sale::with('user', 'party')
                         ->when($request->party_id, function ($query) use ($request) {
                             return $query->where('party_id', $request->party_id);
@@ -957,7 +950,7 @@ class SaleController extends Controller
                         });
 
         return DataTables::of($data)
-                    ->filter(function ($query) use ($request) {
+                    ->filter(function ($query) use ($request, $isAdminRole) {
                         if ($request->has('search') && $request->search['value']) {
                             $searchTerm = $request->search['value'];
                             $query->where(function ($q) use ($searchTerm) {
@@ -971,6 +964,9 @@ class SaleController extends Controller
                                       $userQuery->where('username', 'like', "%{$searchTerm}%");
                                   });
                             });
+                        }
+                        if(!$isAdminRole) {
+                            $query->where('company_id', app('company')['id']);
                         }
                     })
                     ->addIndexColumn()
@@ -1102,7 +1098,7 @@ class SaleController extends Controller
                                 </li>
                             </ul>
                         </div>';
-                            return $actionBtn;
+                        return $actionBtn;
                     })
                     ->rawColumns(['action'])
                     ->make(true);

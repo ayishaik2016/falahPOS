@@ -25,6 +25,7 @@ class PaymentTypes extends Model
         'description',
         'status',
         'print_bit',
+        'company_id'
     ];
 
     /**

@@ -22,6 +22,7 @@ class Carrier extends Model
         'phone',
         'whatsapp',
         'address',
+        'company_id',
         'note',
         'status',
     ];

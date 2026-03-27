@@ -40,6 +40,8 @@ class Kernel extends HttpKernel
             \App\Http\Middleware\LocaleMiddleware::class,//Custom
             \App\Http\Middleware\DemoModeRestriction::class,//Custom
             \App\Http\Middleware\CheckPartyTypePermission::class,//Custom
+
+            \App\Http\Middleware\CompanyMiddleware::class,//Custom
         ],
 
         'api' => [

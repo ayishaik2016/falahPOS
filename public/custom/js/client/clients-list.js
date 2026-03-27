@@ -1,5 +1,5 @@
-$(function() {
-	"use strict";
+$(function () {
+    "use strict";
 
     const tableId = $('#datatable');
     const datatableForm = $("#datatableForm");
@@ -7,30 +7,30 @@ $(function() {
     /**
      * Server Side Datatable Records
      */
-    function loadDatatables(){
+    function loadDatatables() {
         tableId.DataTable().destroy();
 
-        var exportColumns = [2,3,4,5,6,7,8]; // Index starts from 0
+        var exportColumns = [2, 3, 4, 5, 6, 7, 8]; // Index starts from 0
 
         var table = tableId.DataTable({
             processing: true,
             serverSide: true,
             method: 'get',
-            ajax: baseURL + '/client/datatable',
+            ajax: baseURL + '/client/datatable-list',
             columns: [
-                {targets: 0, data: 'id', orderable: true, visible: false},
+                { targets: 0, data: 'id', orderable: true, visible: false },
                 {
                     data: 'id',
                     orderable: false,
                     className: 'text-center',
-                    render: function(data, type, full, meta) {
+                    render: function (data, type, full, meta) {
                         return '<input type="checkbox" class="form-check-input row-select" name="record_ids[]" value="' + data + '">';
                     }
                 },
-                {data: 'first_name', name: 'first_name'},
-                {data: 'username',   name: 'username'},
-                {data: 'mobile',     name: 'mobile'},
-                {data: 'email',      name: 'email'},
+                { data: 'first_name', name: 'first_name' },
+                { data: 'username', name: 'username' },
+                { data: 'mobile', name: 'mobile' },
+                { data: 'email', name: 'email' },
 
                 // Stores count — clickable badge
                 {
@@ -46,7 +46,7 @@ $(function() {
                     name: 'status',
                     orderable: false,
                     className: 'text-center',
-                    render: function(data, type, full, meta) {
+                    render: function (data, type, full, meta) {
                         if (data == 1) {
                             return '<div class="badge rounded-pill text-success bg-light-success p-2 text-uppercase px-3">Active</div>';
                         } else {
@@ -55,39 +55,39 @@ $(function() {
                     }
                 },
 
-                {data: 'created_at', name: 'created_at'},
-                {data: 'action',     name: 'action', orderable: false, searchable: false},
+                { data: 'created_at', name: 'created_at' },
+                { data: 'action', name: 'action', orderable: false, searchable: false },
             ],
 
-            dom: "<'row' "+
-                    "<'col-sm-12' "+
-                        "<'float-start' l"+
-                        ">"+
-                        "<'float-end' fr"+
-                        ">"+
-                        "<'float-end ms-2'"+
-                            "<'card-body ' B >"+
-                        ">"+
-                    ">"+
-                  ">"+
-            "<'row'<'col-sm-12'tr>>" +
-            "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+            dom: "<'row' " +
+                "<'col-sm-12' " +
+                "<'float-start' l" +
+                ">" +
+                "<'float-end' fr" +
+                ">" +
+                "<'float-end ms-2'" +
+                "<'card-body ' B >" +
+                ">" +
+                ">" +
+                ">" +
+                "<'row'<'col-sm-12'tr>>" +
+                "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
 
             buttons: [
                 {
                     className: 'btn btn-outline-danger buttons-copy buttons-html5 multi_delete',
                     text: 'Delete',
-                    action: function(e, dt, node, config) {
+                    action: function (e, dt, node, config) {
                         requestDeleteRecords();
                     }
                 },
-                {extend: 'copyHtml5',  exportOptions: {columns: exportColumns}},
-                {extend: 'excelHtml5', exportOptions: {columns: exportColumns}},
-                {extend: 'csvHtml5',   exportOptions: {columns: exportColumns}},
+                { extend: 'copyHtml5', exportOptions: { columns: exportColumns } },
+                { extend: 'excelHtml5', exportOptions: { columns: exportColumns } },
+                { extend: 'csvHtml5', exportOptions: { columns: exportColumns } },
                 {
                     extend: 'pdfHtml5',
                     orientation: 'portrait',
-                    exportOptions: {columns: exportColumns},
+                    exportOptions: { columns: exportColumns },
                 },
             ],
 
@@ -98,7 +98,7 @@ $(function() {
             order: [[0, 'desc']]
         });
 
-        table.on('click', '.deleteRequest', function() {
+        table.on('click', '.deleteRequest', function () {
             let deleteId = $(this).attr('data-delete-id');
             deleteRequest(deleteId);
         });
@@ -108,20 +108,20 @@ $(function() {
     }
 
     // Header checkbox — select all
-    tableId.find('thead').on('click', '.row-select', function() {
+    tableId.find('thead').on('click', '.row-select', function () {
         var isChecked = $(this).prop('checked');
         tableId.find('tbody .row-select').prop('checked', isChecked);
     });
 
-    function countCheckedCheckbox(){
+    function countCheckedCheckbox() {
         return $('input[name="record_ids[]"]:checked').length;
     }
 
-    async function validateCheckedCheckbox(){
+    async function validateCheckedCheckbox() {
         const confirmed = await confirmAction();
         if (!confirmed) return false;
         if (countCheckedCheckbox() == 0) {
-            iziToast.error({title: 'Warning', layout: 2, message: "Please select at least one record to delete"});
+            iziToast.error({ title: 'Warning', layout: 2, message: "Please select at least one record to delete" });
             return false;
         }
         return true;
@@ -134,14 +134,14 @@ $(function() {
         }
     }
 
-    async function requestDeleteRecords(){
+    async function requestDeleteRecords() {
         const confirmed = await confirmAction();
         if (confirmed) {
             datatableForm.trigger('submit');
         }
     }
 
-    datatableForm.on("submit", function(e) {
+    datatableForm.on("submit", function (e) {
         e.preventDefault();
         const form = $(this);
         const formArray = {
@@ -155,7 +155,7 @@ $(function() {
         ajaxRequest(formArray);
     });
 
-    function deleteRecord(id){
+    function deleteRecord(id) {
         const form = datatableForm;
         const formArray = {
             formId: form.attr("id"),
@@ -169,7 +169,7 @@ $(function() {
         ajaxRequest(formArray);
     }
 
-    function ajaxRequest(formArray){
+    function ajaxRequest(formArray) {
         var jqxhr = $.ajax({
             type: formArray._method,
             url: formArray.url,
@@ -181,19 +181,19 @@ $(function() {
                 'X-CSRF-TOKEN': formArray.csrf
             },
         });
-        jqxhr.done(function(data) {
-            iziToast.success({title: 'Success', layout: 2, message: data.message});
+        jqxhr.done(function (data) {
+            iziToast.success({ title: 'Success', layout: 2, message: data.message });
         });
-        jqxhr.fail(function(response) {
+        jqxhr.fail(function (response) {
             var message = response.responseJSON?.message ?? 'An error occurred.';
-            iziToast.error({title: 'Error', layout: 2, message: message});
+            iziToast.error({ title: 'Error', layout: 2, message: message });
         });
-        jqxhr.always(function() {
+        jqxhr.always(function () {
             loadDatatables();
         });
     }
 
-    $(document).ready(function() {
+    $(document).ready(function () {
         loadDatatables();
     });
 

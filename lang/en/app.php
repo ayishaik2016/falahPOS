@@ -317,4 +317,19 @@ return [
     'range' => 'Range',
     'percentage' => 'Percentage',
     'initial_amount' => 'Initial Amount',
+
+    'stores' => 'Stores',
+    'manage_stores' => 'Manage Stores',
+    'select_store' => 'Select Store',
+    'store' => 'Store',
+    'default' => 'Default',
+    'active' => 'Active',
+    'add_store' => 'Add Store',
+    'stores_list' => 'Stores List',
+    'create_store' => 'Create Store',
+    'store_name' => 'Store Name',
+    'store_code' => 'Store Code',
+    'set_as_default' => 'Set as default',
+    'default_store_updated_successfully' => 'Default Store Updated Successfully',
+    'edit_store' => 'Edit Store'
 ];

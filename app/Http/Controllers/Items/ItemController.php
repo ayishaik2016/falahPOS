@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Items;
 
+use App\Models\Warehouse;
 use App\Traits\FormatNumber;
 use App\Traits\FormatsDateInputs;
 use App\Http\Controllers\Controller;
@@ -191,7 +192,7 @@ class ItemController extends Controller
                 'item_location'             =>  $request->item_location,
 
                 'status'                    =>  $request->status,
-
+                'company_id'                => app('company')['id']
             ];
 
             if($request->operation == 'save'){
@@ -444,6 +445,7 @@ class ItemController extends Controller
     }
 
     public function datatableList(Request $request){
+        $isAdminRole = app('isAdminRole');
         $warehouseId = request('warehouse_id');
         $data = Item::with([ 'user', 'tax', 'itemGeneralQuantities', 'brand', 'category'])
                         ->when($request->item_category_id, function ($query) use ($request) {
@@ -467,98 +469,101 @@ class ItemController extends Controller
                         });
 
         return DataTables::of($data)
-                    ->filter(function ($query) use ($request) {
-                        if ($request->has('search')) {
-                            $searchTerm = $request->search['value'];
-                            $query->where(function ($q) use ($searchTerm) {
-                                $q->where('name', 'like', "%{$searchTerm}%")
-                                  ->orWhere('description', 'like', "%{$searchTerm}%")
-                                  ->orWhere('sku', 'like', "%{$searchTerm}%")
-                                  ->orWhere('sale_price', 'like', "%{$searchTerm}%")
-                                  ->orWhere('item_code', 'like', "%{$searchTerm}%")
-                                  ->orWhere('item_location', 'like', "%{$searchTerm}%")
-                                  ->orWhere('tracking_type', 'like', "%{$searchTerm}%")
-                                  // Add more columns as needed
+            ->filter(function ($query) use ($request, $isAdminRole) {
+                if ($request->has('search')) {
+                    $searchTerm = $request->search['value'];
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('name', 'like', "%{$searchTerm}%")
+                            ->orWhere('description', 'like', "%{$searchTerm}%")
+                            ->orWhere('sku', 'like', "%{$searchTerm}%")
+                            ->orWhere('sale_price', 'like', "%{$searchTerm}%")
+                            ->orWhere('item_code', 'like', "%{$searchTerm}%")
+                            ->orWhere('item_location', 'like', "%{$searchTerm}%")
+                            ->orWhere('tracking_type', 'like', "%{$searchTerm}%")
+                            // Add more columns as needed
 
-                                  ->orWhereHas('tax', function ($taxQuery) use ($searchTerm) {
-                                      $taxQuery->where('name', 'like', "%{$searchTerm}%");
-                                  })
-                                  ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
-                                        $brandQuery->where('name', 'like', "%{$searchTerm}%");
-                                    })
-                                    ->orWhereHas('category', function ($categoryQuery) use ($searchTerm) {
-                                        $categoryQuery->where('name', 'like', "%{$searchTerm}%");
-                                    });
+                            ->orWhereHas('tax', function ($taxQuery) use ($searchTerm) {
+                                $taxQuery->where('name', 'like', "%{$searchTerm}%");
+                            })
+                            ->orWhereHas('brand', function ($brandQuery) use ($searchTerm) {
+                                $brandQuery->where('name', 'like', "%{$searchTerm}%");
+                            })
+                            ->orWhereHas('category', function ($categoryQuery) use ($searchTerm) {
+                                $categoryQuery->where('name', 'like', "%{$searchTerm}%");
                             });
-                        }
-                    })
-                    ->addIndexColumn()
-                    ->addColumn('created_at', function ($row) {
-                        return $row->created_at->format(app('company')['date_format']);
-                    })
-                    ->addColumn('username', function ($row) {
-                        return $row->user->username??'';
-                    })
-                    ->editColumn('tracking_type', function ($row) {
-                        return ucfirst($row->tracking_type);
-                    })
-                    ->editColumn('sale_price', function ($row) {
-                        return $this->formatWithPrecision($row->sale_price);
-                    })
-                    ->addColumn('brand_name', function ($row) {
-                        return $row->brand->name??'';
-                    })
-                    ->addColumn('item_location', function ($row) {
-                        return $row->item_location??'';
-                    })
-                    ->addColumn('category_name', function ($row) {
-                        return $row->category->name;
-                    })
-                    ->editColumn('purchase_price', function ($row) {
-                        return $this->formatWithPrecision($row->purchase_price);
-                    })
-                    ->editColumn('current_stock', function ($row) use ($warehouseId){
+                    });
+                }
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
+            ->addIndexColumn()
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at->format(app(\App\Models\Company::class)['date_format']);
+            })
+            ->addColumn('username', function ($row) {
+                return $row->user->username??'';
+            })
+            ->editColumn('tracking_type', function ($row) {
+                return ucfirst($row->tracking_type);
+            })
+            ->editColumn('sale_price', function ($row) {
+                return $this->formatWithPrecision($row->sale_price);
+            })
+            ->addColumn('brand_name', function ($row) {
+                return $row->brand->name??'';
+            })
+            ->addColumn('item_location', function ($row) {
+                return $row->item_location??'';
+            })
+            ->addColumn('category_name', function ($row) {
+                return $row->category->name;
+            })
+            ->editColumn('purchase_price', function ($row) {
+                return $this->formatWithPrecision($row->purchase_price);
+            })
+            ->editColumn('current_stock', function ($row) use ($warehouseId){
 
-                        if ($warehouseId) {
-                            $warehouseQuantity = $row->itemGeneralQuantities
-                                ->where('warehouse_id', $warehouseId)
-                                ->first();
+                if ($warehouseId) {
+                    $warehouseQuantity = $row->itemGeneralQuantities
+                        ->where('warehouse_id', $warehouseId)
+                        ->first();
 
-                            $quantity = $warehouseQuantity ? $warehouseQuantity->quantity : 0;
-                        }else{
-                            $quantity = $row->current_stock;
-                        }
-                        //return $this->formatQuantity($quantity);
-                        return $this->itemService->getQuantityInUnit($quantity, $row->id);
+                    $quantity = $warehouseQuantity ? $warehouseQuantity->quantity : 0;
+                }else{
+                    $quantity = $row->current_stock;
+                }
+                //return $this->formatQuantity($quantity);
+                return $this->itemService->getQuantityInUnit($quantity, $row->id);
 
-                    })
-                    ->addColumn('action', function($row){
-                            $id = $row->id;
+            })
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                            $editUrl = route('item.edit', ['id' => $id]);
-                            $deleteUrl = route('item.delete', ['id' => $id]);
-                            $transactionUrl = route('item.transaction.list', ['id' => $id]);
+                    $editUrl = route('item.edit', ['id' => $id]);
+                    $deleteUrl = route('item.delete', ['id' => $id]);
+                    $transactionUrl = route('item.transaction.list', ['id' => $id]);
 
 
-                            $actionBtn = '<div class="dropdown ms-auto">
-                            <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="' . $transactionUrl . '"><i class="bi bi-trash"></i><i class="bx bx-transfer-alt"></i> '.__('app.transactions').'</a>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>
-                            </ul>
-                        </div>';
-                            return $actionBtn;
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="' . $transactionUrl . '"><i class="bi bi-trash"></i><i class="bx bx-transfer-alt"></i> '.__('app.transactions').'</a>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>
+                    </ul>
+                </div>';
+                    return $actionBtn;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     public function delete(Request $request) : JsonResponse{
@@ -823,10 +828,11 @@ class ItemController extends Controller
      * */
     function getAjaxItemSearchBarList(){
         $search = request('search');
+        $stockAvailable = request('stock_available') ?? 0;
         $page = request('page', 1); // current page
         $perPage = 10;              // items per page
         $offset = ($page - 1) * $perPage;
-
+      
         $showWholesalePrice = Party::select('is_wholesale_customer')
             ->find(request('party_id'))
             ?->is_wholesale_customer ?? false;
@@ -843,6 +849,10 @@ class ItemController extends Controller
                     $brandQuery->where('name', 'LIKE', "%{$search}%");
                 });
         });
+
+        if($stockAvailable > 0) {
+            $query->where('current_stock', '>', 0);
+        }
 
         // Get total for pagination
         $totalCount = $query->count();
@@ -878,25 +888,25 @@ class ItemController extends Controller
         $showWholesalePrice = Party::select('is_wholesale_customer')
                                     ->find(request('party_id'))
                                     ?->is_wholesale_customer ?? false;
-
+        
         $itemMaster = Item::with([
-                            'tax',
-                            'brand',
-                            'itemGeneralQuantities' => function ($query) use ($warehouseId) {
-                                $query->where('warehouse_id', $warehouseId);
-                            }
-                        ])
-                        ->where(function ($query) use ($search) {
-                            $query->where('name', 'LIKE', "%{$search}%")
-                                  ->orWhere('item_code', 'LIKE', "%{$search}%");
-                        })
-                        ->when($categoryId, function ($query) use ($categoryId) {
-                            return $query->where('item_category_id', $categoryId);
-                        })
-                        ->when($brandId, function ($query) use ($brandId) {
-                            return $query->where('brand_id', $brandId);
-                        })
-                        ->paginate(15, ['*'], 'page', $page); // Use pagination for infinite scroll
+                'tax',
+                'brand',
+                'itemGeneralQuantities' => function ($query) use ($warehouseId) {
+                    $query->where('warehouse_id', $warehouseId);
+                }
+            ])
+            ->where(function ($query) use ($search) {
+                $query->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('item_code', 'LIKE', "%{$search}%");
+            })
+            ->when($categoryId, function ($query) use ($categoryId) {
+                return $query->where('item_category_id', $categoryId);
+            })
+            ->when($brandId, function ($query) use ($brandId) {
+                return $query->where('brand_id', $brandId);
+            })
+            ->paginate(15, ['*'], 'page', $page); // Use pagination for infinite scroll
 
         $response = $this->returnRequiredFormatData($itemMaster, $showWholesalePrice);
         return response()->json($response);
@@ -907,13 +917,15 @@ class ItemController extends Controller
 
         $warehouseId = request('warehouse_id') ?? null;//If no warehouse is selected then null, Barcode Generation Page no need to show warehouse stock
 
-        $warehouseName = $warehouseId ? CacheService::get('warehouse')->where('id', $warehouseId)->first()?->name ?? '' : '';
+        $warehouseName = $warehouseId ? Warehouse::where('id', $warehouseId)->first()?->name ?? '' : '';
 
         // Cache the Tax list
-        $taxList = CacheService::get('tax');
+        // $taxList = CacheService::get('tax');
+        $taxList = Tax::get();
 
         // Cache the Unit list
-        $unitList = CacheService::get('unit');
+        // $unitList = CacheService::get('unit');
+        $unitList = Unit::get();
 
         $itemMaster->load('itemGeneralQuantities.warehouse');
 
@@ -997,7 +1009,7 @@ class ItemController extends Controller
                     $itemsArray['sale_price_with_tax'] = ($item->is_sale_price_with_tax == 1) ? $item->sale_price : calculatePrice($item->sale_price, $item->tax->rate, false);
 
                     //Show Discount Allowed in company then only show sale_price_discount else 0
-                    $itemsArray['sale_price_discount'] = (app('company')['show_discount']) ? $item->sale_price_discount : 0;
+                    $itemsArray['sale_price_discount'] = (app(abstract: \App\Models\Company::class)['show_discount']) ? $item->sale_price_discount : 0;
                     $itemsArray['sale_price_discount_type'] = $item->sale_price_discount_type;
                 }
 

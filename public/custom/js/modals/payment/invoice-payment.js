@@ -187,7 +187,7 @@ $(function() {
         $("#paid-amount").text(response.data.paid_amount);
 
         let totalAmount = 0;
-        
+          
         var table = $('#payment-history-table tbody');
 
         table.empty(); // Clear existing rows

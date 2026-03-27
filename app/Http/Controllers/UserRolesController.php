@@ -26,7 +26,7 @@ class UserRolesController extends Controller
     public function createRole() : View {
 
         $roleAndPermission = $this->getGroupPermissionsList();
-
+        
         return view('roles-and-permissions.role.create', compact('roleAndPermission'));
     }
 
@@ -190,6 +190,12 @@ class UserRolesController extends Controller
 
                             $editUrl = route('role.edit', ['id' => $id]);
                             $deleteUrl = route('role.delete', ['id' => $id]);
+                            $deleteAction = '';
+                            if($row->is_deletable == 1) {
+                                $deleteAction = '<li>
+                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                                </li>';
+                            }
 
 
                             $actionBtn = '<div class="dropdown ms-auto">
@@ -199,9 +205,7 @@ class UserRolesController extends Controller
                                 <li>
                                     <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
                                 </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>
+                                '.$deleteAction.'
                             </ul>
                         </div>';
                             return $actionBtn;

@@ -18,10 +18,11 @@ use App\Models\Sale\Sale;
 use App\Models\Accounts\AccountTransaction;
 use App\Models\Currency;
 use App\Models\StatusHistory;
+use App\Traits\HasStoreScope;
 
 class SaleOrder extends Model
 {
-    use HasFactory;
+    use HasFactory, HasStoreScope;
 
     use FormatsDateInputs;
 
@@ -48,6 +49,8 @@ class SaleOrder extends Model
         'order_status',
         'currency_id',
         'exchange_rate',
+        'company_id',
+        'store_id'
     ];
 
     /**

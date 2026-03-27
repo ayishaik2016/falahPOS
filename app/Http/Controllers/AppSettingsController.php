@@ -28,12 +28,12 @@ class AppSettingsController extends Controller
     {
         $this->appSettingsRecordId = App::APP_SETTINGS_RECORD_ID->value;
         $this->smtpSettingsRecordId = App::APP_SETTINGS_RECORD_ID->value;
-        $this->companyId = App::APP_SETTINGS_RECORD_ID->value;
+        // $this->companyId = app('company')['id'];
     }
 
     public function index(){
-        $data = AppSettings::findOrNew($this->appSettingsRecordId);
-        $company = Company::findOrNew($this->companyId);
+        $data = AppSettings::findOrNew(app('site')['id']);
+        $company = Company::findOrNew(app('company')['id']);
         $smtp = SmtpSettings::findOrNew($this->smtpSettingsRecordId);
         $twilio = Twilio::findOrNew($this->smtpSettingsRecordId);
         $vonage = Vonage::findOrNew($this->smtpSettingsRecordId);
@@ -49,13 +49,13 @@ class AppSettingsController extends Controller
         $validatedData = $request->validated();
 
         // Save the application settings
-        $settings = AppSettings::findOrNew($this->appSettingsRecordId);
+        $settings = AppSettings::findOrNew(app('site')['id']);
         $settings->application_name = $validatedData['application_name'];
         $settings->footer_text = $validatedData['footer_text'];
         $settings->language_id = $validatedData['language_id'];
         $settings->save();
 
-        $company = Company::findOrNew($this->companyId);
+        $company = Company::findOrNew(id: app('company')['id']);
         $company->timezone = $validatedData['timezone'];
         $company->date_format = $validatedData['date_format'];
         $company->time_format = $validatedData['time_format'];
@@ -108,7 +108,7 @@ class AppSettingsController extends Controller
         $twilioStatus = Twilio::find($this->appSettingsRecordId)?->status;
         $vonageStatus = Vonage::find($this->appSettingsRecordId)?->status;
 
-        $company = Company::find($this->companyId);
+        $company = Company::find(app('company')['id']);
         $company->active_sms_api = (is_null($vonageStatus) && is_null($twilioStatus)) ? null : $active_sms_api;
         $company->save();
 
@@ -133,7 +133,7 @@ class AppSettingsController extends Controller
     public function storeLogo(LogoRequest $request) : JsonResponse{
         $validatedData = $request->validated();
 
-        $settings = AppSettings::findOrNew($this->appSettingsRecordId);
+        $settings = AppSettings::findOrNew(app('site')['id']);
 
         if ($request->hasFile('fevicon') && $request->file('fevicon')->isValid()) {
             $filename = $this->uploadImage($request->file('fevicon'),$externalPath = 'fevicon');

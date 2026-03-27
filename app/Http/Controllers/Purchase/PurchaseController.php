@@ -400,6 +400,7 @@ class PurchaseController extends Controller
                     'exchange_rate'         => $validatedData['exchange_rate'],
                     'is_shipping_charge_distributed' => $validatedData['is_shipping_charge_distributed'],
                     'shipping_charge'       => $validatedData['shipping_charge'],
+                    'company_id'            => app('company')['id']
                 ];
 
                 $newPurchase = Purchase::findOrFail($validatedData['purchase_id']);
@@ -799,165 +800,164 @@ class PurchaseController extends Controller
      * Datatabale
      * */
     public function datatableList(Request $request){
-
+        $isAdminRole = app('isAdminRole');
         $data = Purchase::with('user', 'party')
-                        ->when($request->party_id, function ($query) use ($request) {
-                            return $query->where('party_id', $request->party_id);
-                        })
-                        ->when($request->user_id, function ($query) use ($request) {
-                            return $query->where('created_by', $request->user_id);
-                        })
-                        ->when($request->from_date, function ($query) use ($request) {
-                            return $query->where('purchase_date', '>=', $this->toSystemDateFormat($request->from_date));
-                        })
-                        ->when($request->to_date, function ($query) use ($request) {
-                            return $query->where('purchase_date', '<=', $this->toSystemDateFormat($request->to_date));
-                        })
-                        ->when(!auth()->user()->can('purchase.bill.can.view.other.users.purchase.bills'), function ($query) use ($request) {
-                            return $query->where('created_by', auth()->user()->id);
-                        });
+            ->when($request->party_id, function ($query) use ($request) {
+                return $query->where('party_id', $request->party_id);
+            })
+            ->when($request->user_id, function ($query) use ($request) {
+                return $query->where('created_by', $request->user_id);
+            })
+            ->when($request->from_date, function ($query) use ($request) {
+                return $query->where('purchase_date', '>=', $this->toSystemDateFormat($request->from_date));
+            })
+            ->when($request->to_date, function ($query) use ($request) {
+                return $query->where('purchase_date', '<=', $this->toSystemDateFormat($request->to_date));
+            })
+            ->when(!auth()->user()->can('purchase.bill.can.view.other.users.purchase.bills'), function ($query) use ($request) {
+                return $query->where('created_by', auth()->user()->id);
+            });
 
         return DataTables::of($data)
-                    ->filter(function ($query) use ($request) {
-                        if ($request->has('search') && $request->search['value']) {
-                            $searchTerm = $request->search['value'];
-                            $query->where(function ($q) use ($searchTerm) {
-                                $q->where('purchase_code', 'like', "%{$searchTerm}%")
-                                  ->orWhere('grand_total', 'like', "%{$searchTerm}%")
-                                  ->orWhereHas('party', function ($partyQuery) use ($searchTerm) {
-                                      $partyQuery->where('first_name', 'like', "%{$searchTerm}%")
-                                            ->orWhere('last_name', 'like', "%{$searchTerm}%");
-                                  })
-                                  ->orWhereHas('user', function ($userQuery) use ($searchTerm) {
-                                      $userQuery->where('username', 'like', "%{$searchTerm}%");
-                                  });
+            ->filter(function ($query) use ($request, $isAdminRole) {
+                if ($request->has('search') && $request->search['value']) {
+                    $searchTerm = $request->search['value'];
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('purchase_code', 'like', "%{$searchTerm}%")
+                            ->orWhere('grand_total', 'like', "%{$searchTerm}%")
+                            ->orWhereHas('party', function ($partyQuery) use ($searchTerm) {
+                                $partyQuery->where('first_name', 'like', "%{$searchTerm}%")
+                                    ->orWhere('last_name', 'like', "%{$searchTerm}%");
+                            })
+                            ->orWhereHas('user', function ($userQuery) use ($searchTerm) {
+                                $userQuery->where('username', 'like', "%{$searchTerm}%");
                             });
-                        }
-                    })
-                    ->addIndexColumn()
-                    ->addColumn('created_at', function ($row) {
-                        return $row->created_at->format(app('company')['date_format']);
-                    })
-                    ->addColumn('username', function ($row) {
-                        return $row->user->username??'';
-                    })
-                    ->addColumn('purchase_date', function ($row) {
-                        return $row->formatted_purchase_date;
-                    })
+                    });
+                }
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
+            ->addIndexColumn()
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at->format(app('company')['date_format']);
+            })
+            ->addColumn('username', function ($row) {
+                return $row->user->username??'';
+            })
+            ->addColumn('purchase_date', function ($row) {
+                return $row->formatted_purchase_date;
+            })
 
-                    ->addColumn('purchase_code', function ($row) {
-                        return $row->purchase_code;
-                    })
-                    ->addColumn('party_name', function ($row) {
-                        return $row->party->first_name." ".$row->party->last_name;
-                    })
-                    ->addColumn('grand_total', function ($row) {
-                        return $this->formatWithPrecision($row->grand_total);
-                    })
-                    ->addColumn('balance', function ($row) {
-                        return $this->formatWithPrecision($row->grand_total - $row->paid_amount);
-                    })
+            ->addColumn('purchase_code', function ($row) {
+                return $row->purchase_code;
+            })
+            ->addColumn('party_name', function ($row) {
+                return $row->party->first_name." ".$row->party->last_name;
+            })
+            ->addColumn('grand_total', function ($row) {
+                return $this->formatWithPrecision($row->grand_total);
+            })
+            ->addColumn('balance', function ($row) {
+                return $this->formatWithPrecision($row->grand_total - $row->paid_amount);
+            })
+            ->addColumn('status', function ($row) {
+                if ($row->purchaseOrder) {
+                    return [
+                        'text' => "Converted from Purchase Order",
+                        'code' => $row->purchaseOrder->order_code,
+                        'url'  => route('purchase.order.details', ['id' => $row->purchaseOrder->id]),
+                    ];
+                }
 
+                return [
+                    'text' => "",
+                    'code' => "",
+                    'url'  => "",
+                ];
+            })
+            ->addColumn('is_return_raised', function ($row) {
+                $returns = $row->purchaseReturn()->get(); // Get all return records
 
-                    ->addColumn('status', function ($row) {
-                        if ($row->purchaseOrder) {
-                            return [
-                                'text' => "Converted from Purchase Order",
-                                'code' => $row->purchaseOrder->order_code,
-                                'url'  => route('purchase.order.details', ['id' => $row->purchaseOrder->id]),
-                            ];
-                        }
+                if ($returns->isNotEmpty()) {
+                    $returnCodes = $returns->pluck('return_code')->toArray(); // Get return codes
+                    $returnIds = $returns->pluck('id')->toArray(); // Get return IDs
 
-                        return [
-                            'text' => "",
-                            'code' => "",
-                            'url'  => "",
-                        ];
-                    })
+                    return [
+                        'status' => "Return Raised",
+                        'codes'  => implode(', ', $returnCodes), // Convert codes to comma-separated string
+                        'urls'   => array_map(function ($id) {
+                            return route('purchase.return.details', ['id' => $id]);
+                        }, $returnIds), // Generate URLs for each return ID
+                    ];
+                }
+                return [
+                    'status' => "",
+                    'codes'  => "",
+                    'urls'   => [],
+                ];
+            })
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                    ->addColumn('is_return_raised', function ($row) {
-                        $returns = $row->purchaseReturn()->get(); // Get all return records
+                    $editUrl = route('purchase.bill.edit', ['id' => $id]);
+                    $deleteUrl = route('purchase.bill.delete', ['id' => $id]);
+                    $detailsUrl = route('purchase.bill.details', ['id' => $id]);
+                    $printUrl = route('purchase.bill.print', ['id' => $id]);
+                    $pdfUrl = route('purchase.bill.pdf', ['id' => $id]);
 
-                        if ($returns->isNotEmpty()) {
-                            $returnCodes = $returns->pluck('return_code')->toArray(); // Get return codes
-                            $returnIds = $returns->pluck('id')->toArray(); // Get return IDs
+                    //Verify is it converted or not
+                    /*if($row->purchaseReturn){
+                        $convertToPurchase = route('purchase.return.details', ['id' => $row->purchaseReturn->id]);
+                        $convertToPurchaseText = __('app.view_bill');
+                        $convertToPurchaseIcon = 'check-double';
+                    }else{*/
+                        $convertToPurchase = route('purchase.return.convert', ['id' => $id]);
+                        $convertToPurchaseText = __('purchase.convert_to_return');
+                        $convertToPurchaseIcon = 'transfer-alt';
+                    //}
 
-                            return [
-                                'status' => "Return Raised",
-                                'codes'  => implode(', ', $returnCodes), // Convert codes to comma-separated string
-                                'urls'   => array_map(function ($id) {
-                                    return route('purchase.return.details', ['id' => $id]);
-                                }, $returnIds), // Generate URLs for each return ID
-                            ];
-                        }
-                        return [
-                            'status' => "",
-                            'codes'  => "",
-                            'urls'   => [],
-                        ];
-                    })
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="' . $convertToPurchase . '"><i class="bx bx-'.$convertToPurchaseIcon.'"></i> '.$convertToPurchaseText.'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-show-alt"></i> '.__('app.details').'</a>
+                        </li>
 
-                    ->addColumn('action', function($row){
-                            $id = $row->id;
-
-                            $editUrl = route('purchase.bill.edit', ['id' => $id]);
-                            $deleteUrl = route('purchase.bill.delete', ['id' => $id]);
-                            $detailsUrl = route('purchase.bill.details', ['id' => $id]);
-                            $printUrl = route('purchase.bill.print', ['id' => $id]);
-                            $pdfUrl = route('purchase.bill.pdf', ['id' => $id]);
-
-                            //Verify is it converted or not
-                            /*if($row->purchaseReturn){
-                                $convertToPurchase = route('purchase.return.details', ['id' => $row->purchaseReturn->id]);
-                                $convertToPurchaseText = __('app.view_bill');
-                                $convertToPurchaseIcon = 'check-double';
-                            }else{*/
-                                $convertToPurchase = route('purchase.return.convert', ['id' => $id]);
-                                $convertToPurchaseText = __('purchase.convert_to_return');
-                                $convertToPurchaseIcon = 'transfer-alt';
-                            //}
-
-                            $actionBtn = '<div class="dropdown ms-auto">
-                            <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="' . $convertToPurchase . '"><i class="bx bx-'.$convertToPurchaseIcon.'"></i> '.$convertToPurchaseText.'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-show-alt"></i> '.__('app.details').'</a>
-                                </li>
-
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
-                                </li>
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item make-payment" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-money"></i> '.__('payment.make_payment').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item payment-history" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-table"></i> '.__('payment.history').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item notify-through-email" data-model="purchase/bill" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_email').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item notify-through-sms" data-model="purchase/bill" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_sms').'</a>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>
-                            </ul>
-                        </div>';
-                            return $actionBtn;
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
+                        </li>
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item make-payment" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-money"></i> '.__('payment.make_payment').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item payment-history" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-table"></i> '.__('payment.history').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item notify-through-email" data-model="purchase/bill" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_email').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item notify-through-sms" data-model="purchase/bill" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_sms').'</a>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>
+                    </ul>
+                </div>';
+                    return $actionBtn;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     /**

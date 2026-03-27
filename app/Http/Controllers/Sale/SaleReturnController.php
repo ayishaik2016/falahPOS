@@ -385,6 +385,7 @@ class SaleReturnController extends Controller
                     'state_id'              => $validatedData['state_id'],
                     'currency_id'           => $validatedData['currency_id'],
                     'exchange_rate'         => $validatedData['exchange_rate'],
+                    'company_id'            => app('company')['id']
                 ];
 
                 $newRuturn = SaleReturn::findOrFail($validatedData['return_id']);
@@ -693,124 +694,127 @@ class SaleReturnController extends Controller
      * Datatabale
      * */
     public function datatableList(Request $request){
-
+        $isAdminRole = app('isAdminRole');
         $data = SaleReturn::with('user', 'party')
-                        ->when($request->party_id, function ($query) use ($request) {
-                            return $query->where('party_id', $request->party_id);
-                        })
-                        ->when($request->user_id, function ($query) use ($request) {
-                            return $query->where('created_by', $request->user_id);
-                        })
-                        ->when($request->from_date, function ($query) use ($request) {
-                            return $query->where('return_date', '>=', $this->toSystemDateFormat($request->from_date));
-                        })
-                        ->when($request->to_date, function ($query) use ($request) {
-                            return $query->where('return_date', '<=', $this->toSystemDateFormat($request->to_date));
-                        })
-                        ->when(!auth()->user()->can('sale.return.can.view.other.users.sale.returns'), function ($query) use ($request) {
-                            return $query->where('created_by', auth()->user()->id);
-                        });
+            ->when($request->party_id, function ($query) use ($request) {
+                return $query->where('party_id', $request->party_id);
+            })
+            ->when($request->user_id, function ($query) use ($request) {
+                return $query->where('created_by', $request->user_id);
+            })
+            ->when($request->from_date, function ($query) use ($request) {
+                return $query->where('return_date', '>=', $this->toSystemDateFormat($request->from_date));
+            })
+            ->when($request->to_date, function ($query) use ($request) {
+                return $query->where('return_date', '<=', $this->toSystemDateFormat($request->to_date));
+            })
+            ->when(!auth()->user()->can('sale.return.can.view.other.users.sale.returns'), function ($query) use ($request) {
+                return $query->where('created_by', auth()->user()->id);
+            });
 
         return DataTables::of($data)
-                    ->filter(function ($query) use ($request) {
-                        if ($request->has('search') && $request->search['value']) {
-                            $searchTerm = $request->search['value'];
-                            $query->where(function ($q) use ($searchTerm) {
-                                $q->where('return_code', 'like', "%{$searchTerm}%")
-                                  ->orWhere('grand_total', 'like', "%{$searchTerm}%")
-                                  ->orWhere('reference_no', 'like', "%{$searchTerm}%")
-                                  ->orWhereHas('party', function ($partyQuery) use ($searchTerm) {
-                                      $partyQuery->where('first_name', 'like', "%{$searchTerm}%")
-                                            ->orWhere('last_name', 'like', "%{$searchTerm}%");
-                                  })
-                                  ->orWhereHas('user', function ($userQuery) use ($searchTerm) {
-                                      $userQuery->where('username', 'like', "%{$searchTerm}%");
-                                  });
+            ->filter(function ($query) use ($request, $isAdminRole) {
+                if ($request->has('search') && $request->search['value']) {
+                    $searchTerm = $request->search['value'];
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->where('return_code', 'like', "%{$searchTerm}%")
+                            ->orWhere('grand_total', 'like', "%{$searchTerm}%")
+                            ->orWhere('reference_no', 'like', "%{$searchTerm}%")
+                            ->orWhereHas('party', function ($partyQuery) use ($searchTerm) {
+                                $partyQuery->where('first_name', 'like', "%{$searchTerm}%")
+                                    ->orWhere('last_name', 'like', "%{$searchTerm}%");
+                            })
+                            ->orWhereHas('user', function ($userQuery) use ($searchTerm) {
+                                $userQuery->where('username', 'like', "%{$searchTerm}%");
                             });
-                        }
-                    })
-                    ->addIndexColumn()
-                    ->addColumn('created_at', function ($row) {
-                        return $row->created_at->format(app('company')['date_format']);
-                    })
-                    ->addColumn('username', function ($row) {
-                        return $row->user->username??'';
-                    })
-                    ->addColumn('return_date', function ($row) {
-                        return $row->formatted_return_date;
-                    })
-                    ->addColumn('status', function ($row) {
-                        if ($row->sale) {
-                            return [
-                                'text' => "From Sale Invoice",
-                                'code' => $row->sale->sale_code,
-                                'url'  => route('sale.invoice.details', ['id' => $row->sale->id]),
-                            ];
-                        }
-                        return [
-                            'text' => "",
-                            'code' => "",
-                            'url'  => "",
-                        ];
-                    })
-                    ->addColumn('return_code', function ($row) {
-                        return $row->return_code;
-                    })
-                    ->addColumn('party_name', function ($row) {
-                        return $row->party->first_name." ".$row->party->last_name;
-                    })
-                    ->addColumn('grand_total', function ($row) {
-                        return $this->formatWithPrecision($row->grand_total);
-                    })
-                    ->addColumn('balance', function ($row) {
-                        return $this->formatWithPrecision($row->grand_total - $row->paid_amount);
-                    })
-                    ->addColumn('action', function($row){
-                            $id = $row->id;
+                    });
+                }
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
+            ->addIndexColumn()
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at->format(app('company')['date_format']);
+            })
+            ->addColumn('username', function ($row) {
+                return $row->user->username??'';
+            })
+            ->addColumn('return_date', function ($row) {
+                return $row->formatted_return_date;
+            })
+            ->addColumn('status', function ($row) {
+                if ($row->sale) {
+                    return [
+                        'text' => "From Sale Invoice",
+                        'code' => $row->sale->sale_code,
+                        'url'  => route('sale.invoice.details', ['id' => $row->sale->id]),
+                    ];
+                }
+                return [
+                    'text' => "",
+                    'code' => "",
+                    'url'  => "",
+                ];
+            })
+            ->addColumn('return_code', function ($row) {
+                return $row->return_code;
+            })
+            ->addColumn('party_name', function ($row) {
+                return $row->party->first_name." ".$row->party->last_name;
+            })
+            ->addColumn('grand_total', function ($row) {
+                return $this->formatWithPrecision($row->grand_total);
+            })
+            ->addColumn('balance', function ($row) {
+                return $this->formatWithPrecision($row->grand_total - $row->paid_amount);
+            })
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                            $editUrl = route('sale.return.edit', ['id' => $id]);
-                            $deleteUrl = route('sale.return.delete', ['id' => $id]);
-                            $detailsUrl = route('sale.return.details', ['id' => $id]);
-                            $printUrl = route('sale.return.print', ['id' => $id]);
-                            $pdfUrl = route('sale.return.pdf', ['id' => $id]);
+                    $editUrl = route('sale.return.edit', ['id' => $id]);
+                    $deleteUrl = route('sale.return.delete', ['id' => $id]);
+                    $detailsUrl = route('sale.return.details', ['id' => $id]);
+                    $printUrl = route('sale.return.print', ['id' => $id]);
+                    $pdfUrl = route('sale.return.pdf', ['id' => $id]);
 
-                            $actionBtn = '<div class="dropdown ms-auto">
-                            <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-show-alt"></i> '.__('app.details').'</a>
-                                </li>
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
-                                </li>
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item make-payment" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-money"></i> '.__('payment.make_payment').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item payment-history" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-table"></i> '.__('payment.history').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item notify-through-email" data-model="sale/return" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_email').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item notify-through-sms" data-model="sale/return" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_sms').'</a>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>
-                            </ul>
-                        </div>';
-                            return $actionBtn;
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-show-alt"></i> '.__('app.details').'</a>
+                        </li>
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
+                        </li>
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item make-payment" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-money"></i> '.__('payment.make_payment').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item payment-history" data-invoice-id="' . $id . '" role="button"></i><i class="bx bx-table"></i> '.__('payment.history').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item notify-through-email" data-model="sale/return" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_email').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item notify-through-sms" data-model="sale/return" data-id="' . $id . '" role="button"></i><i class="bx bx-envelope"></i> '.__('app.send_sms').'</a>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>
+                    </ul>
+                </div>';
+                    return $actionBtn;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     /**

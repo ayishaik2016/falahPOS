@@ -21,6 +21,7 @@ class ExpenseSubcategory extends Model
     protected $fillable = [
         'name',
         'description',
+        'company_id'
     ];
 
     /**

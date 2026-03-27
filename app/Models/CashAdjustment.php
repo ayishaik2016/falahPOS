@@ -22,6 +22,7 @@ class CashAdjustment extends Model
         'payment_type_id',
         'amount',
         'note',
+        'company_id'
     ];
 
     /**

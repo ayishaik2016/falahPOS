@@ -205,6 +205,7 @@ class StockTransferController extends Controller
                     'count_id'              => $validatedData['count_id'],
                     'transfer_code'         => $validatedData['transfer_code'],
                     'note'                  => $validatedData['note'],
+                    'company_id'            => app('company')['id']
                 ];
 
                 $newTransfer = StockTransfer::findOrFail($validatedData['transfer_id']);
@@ -455,79 +456,82 @@ class StockTransferController extends Controller
      * Datatabale
      * */
     public function datatableList(Request $request){
-
+        $isAdminRole = app('isAdminRole');
         $data = StockTransfer::with('user')
-                        ->when($request->user_id, function ($query) use ($request) {
-                            return $query->where('created_by', $request->user_id);
-                        })
-                        ->when($request->from_date, function ($query) use ($request) {
-                            return $query->where('transfer_date', '>=', $this->toSystemDateFormat($request->from_date));
-                        })
-                        ->when($request->to_date, function ($query) use ($request) {
-                            return $query->where('transfer_date', '<=', $this->toSystemDateFormat($request->to_date));
-                        })
-                        ->when(!auth()->user()->can('stock_transfer.can.view.other.users.stock.transfers'), function ($query) use ($request) {
-                            return $query->where('created_by', auth()->user()->id);
-                        });
+            ->when($request->user_id, function ($query) use ($request) {
+                return $query->where('created_by', $request->user_id);
+            })
+            ->when($request->from_date, function ($query) use ($request) {
+                return $query->where('transfer_date', '>=', $this->toSystemDateFormat($request->from_date));
+            })
+            ->when($request->to_date, function ($query) use ($request) {
+                return $query->where('transfer_date', '<=', $this->toSystemDateFormat($request->to_date));
+            })
+            ->when(!auth()->user()->can('stock_transfer.can.view.other.users.stock.transfers'), function ($query) use ($request) {
+                return $query->where('created_by', auth()->user()->id);
+            });
 
         return DataTables::of($data)
-                    ->filter(function ($query) use ($request) {
-                        if ($request->has('search') && $request->search['value']) {
-                            $searchTerm = $request->search['value'];
-                            $query->where(function ($q) use ($searchTerm) {
-                                $q->WhereHas('user', function ($userQuery) use ($searchTerm) {
-                                      $userQuery->where('username', 'like', "%{$searchTerm}%")
-                                                ->orWhere('transfer_date', 'like', "%{$searchTerm}%")
-                                                ->orWhere('transfer_code', 'like', "%{$searchTerm}%")
-                                                ;
-                                  });
+            ->filter(function ($query) use ($request, $isAdminRole) {
+                if ($request->has('search') && $request->search['value']) {
+                    $searchTerm = $request->search['value'];
+                    $query->where(function ($q) use ($searchTerm) {
+                        $q->WhereHas('user', function ($userQuery) use ($searchTerm) {
+                                $userQuery->where('username', 'like', "%{$searchTerm}%")
+                                        ->orWhere('transfer_date', 'like', "%{$searchTerm}%")
+                                        ->orWhere('transfer_code', 'like', "%{$searchTerm}%")
+                                        ;
                             });
-                        }
-                    })
-                    ->addIndexColumn()
-                    ->addColumn('created_at', function ($row) {
-                        return $row->created_at->format(app('company')['date_format']);
-                    })
-                    ->addColumn('username', function ($row) {
-                        return $row->user->username??'';
-                    })
-                    ->addColumn('transfer_date', function ($row) {
-                        return $row->formatted_transfer_date;
-                    })
-                    ->addColumn('action', function($row){
-                            $id = $row->id;
+                    });
+                }
+                if(!$isAdminRole) {
+                    $query->where('company_id', app('company')['id']);
+                }
+            })
+            ->addIndexColumn()
+            ->addColumn('created_at', function ($row) {
+                return $row->created_at->format(app('company')['date_format']);
+            })
+            ->addColumn('username', function ($row) {
+                return $row->user->username??'';
+            })
+            ->addColumn('transfer_date', function ($row) {
+                return $row->formatted_transfer_date;
+            })
+            ->addColumn('action', function($row){
+                    $id = $row->id;
 
-                            $editUrl = route('stock_transfer.edit', ['id' => $id]);
-                            $deleteUrl = route('stock_transfer.delete', ['id' => $id]);
-                            $detailsUrl = route('stock_transfer.details', ['id' => $id]);
-                            $printUrl = route('stock_transfer.print', ['id' => $id]);
-                            $pdfUrl = route('stock_transfer.pdf', ['id' => $id]);
+                    $editUrl = route('stock_transfer.edit', ['id' => $id]);
+                    $deleteUrl = route('stock_transfer.delete', ['id' => $id]);
+                    $detailsUrl = route('stock_transfer.details', ['id' => $id]);
+                    $printUrl = route('stock_transfer.print', ['id' => $id]);
+                    $pdfUrl = route('stock_transfer.pdf', ['id' => $id]);
 
-                            $actionBtn = '<div class="dropdown ms-auto">
-                            <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li>
-                                    <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-show-alt"></i> '.__('app.details').'</a>
-                                </li>
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
-                                </li>
-                                <li>
-                                    <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
-                                </li>
-                                <li>
-                                    <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
-                                </li>
-                            </ul>
-                        </div>';
-                            return $actionBtn;
-                    })
-                    ->rawColumns(['action'])
-                    ->make(true);
+                    $actionBtn = '<div class="dropdown ms-auto">
+                    <a class="dropdown-toggle dropdown-toggle-nocaret" href="#" data-bs-toggle="dropdown"><i class="bx bx-dots-vertical-rounded font-22 text-option"></i>
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li>
+                            <a class="dropdown-item" href="' . $editUrl . '"><i class="bi bi-trash"></i><i class="bx bx-edit"></i> '.__('app.edit').'</a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" href="' . $detailsUrl . '"></i><i class="bx bx-show-alt"></i> '.__('app.details').'</a>
+                        </li>
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $printUrl . '"></i><i class="bx bx-printer "></i> '.__('app.print').'</a>
+                        </li>
+                        <li>
+                            <a target="_blank" class="dropdown-item" href="' . $pdfUrl . '"></i><i class="bx bxs-file-pdf"></i> '.__('app.pdf').'</a>
+                        </li>
+                        <li>
+                            <button type="button" class="dropdown-item text-danger deleteRequest" data-delete-id='.$id.'><i class="bx bx-trash"></i> '.__('app.delete').'</button>
+                        </li>
+                    </ul>
+                </div>';
+                    return $actionBtn;
+            })
+            ->rawColumns(['action'])
+            ->make(true);
     }
 
     /**

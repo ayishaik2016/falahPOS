@@ -23,6 +23,7 @@ class ExpenseCategory extends Model
         'name',
         'description',
         'account_group_id',
+        'company_id'
     ];
 
     /**

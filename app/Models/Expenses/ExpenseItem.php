@@ -18,6 +18,7 @@ class ExpenseItem extends Model
         'unit_price',
         'quantity',
         'total',
+        'company_id'
     ];
 
     public function itemDetails(): BelongsTo

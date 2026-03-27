@@ -18,6 +18,7 @@ use App\Models\Accounts\AccountTransaction;
 
 use App\Traits\FormatsDateInputs;
 use App\Traits\FormatTime;
+use App\Traits\HasStoreScope;
 
 class Expense extends Model
 {
@@ -26,6 +27,8 @@ class Expense extends Model
     use FormatTime;
 
     use HasFactory;
+    
+    use HasStoreScope;
 
     /**
      * The attributes that are mass assignable.
@@ -43,6 +46,8 @@ class Expense extends Model
         'round_off',
         'grand_total',
         'paid_amount',
+        'company_id',
+        'store_id'
     ];
 
     /**

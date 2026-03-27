@@ -38,6 +38,9 @@ class Company extends Model
         'auto_update_sale_price',
         'auto_update_purchase_price',
         'auto_update_average_purchase_price',
+        'timezone',
+        'date_format',
+        'time_format'
     ];
 
     /**

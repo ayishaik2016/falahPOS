@@ -47,6 +47,7 @@ class SaleReturn extends Model
         'paid_amount',
         'currency_id',
         'exchange_rate',
+        'company_id'
     ];
 
     /**

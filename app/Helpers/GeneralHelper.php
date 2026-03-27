@@ -41,7 +41,7 @@ if (!function_exists('getDatabaseMigrationAppVersion')) {
             ->select('version')
             ->orderBy('id', 'desc')
             ->first();
-            return $appVersion->version;
+        return $appVersion->version;
 
         return env('APP_VERSION', '1.0.0'); // Default version if not set in .env
     }
@@ -55,6 +55,6 @@ if (!function_exists('versionedAsset')) {
      */
     function versionedAsset($link)
     {
-        return global_asset($link).'?v='.getAppVersion(); // Default version if not set in .env
+        return global_asset('public/' . $link) . '?v=' . getAppVersion(); // Default version if not set in .env
     }
 }

@@ -26,6 +26,8 @@
 
     var partyId = $("#party_id");
 
+    const itemCategory = $('#item_search').find('#item_category_id');
+
     /**
      * Language
      * */
@@ -318,7 +320,10 @@
 
        //Find service table row count
         var currentRowId = getRowCount();
-
+        var readonly = '';
+        if(itemUpdatePermission == false) {
+            readonly = 'readonly';
+        }
         var tableBody = tableId.find('tbody');
         var warehouseId = (parseInt(recordObject.warehouse_id) > 0) ? recordObject.warehouse_id : currentWarehouse.val();
         var hiddenWarehouseId  = '<input type="hidden" name="warehouse_id['+ currentRowId +']" class="form-control" value="' + warehouseId + '">';
@@ -356,7 +361,7 @@
 
         var inputQuantity   = '<input type="text" name="quantity['+ currentRowId +']" class="form-control text-center" value="' + recordObject.quantity + '">';
             inputQuantity += `<span class="badge bg-info" data-bs-toggle="tooltip" data-bs-placement="top" title="Warehouse Name"><i class="bx bx-building"></i> ${recordObject.warehouse_name}</span>`;
-        var inputUnitPrice  = '<input type="text" name="sale_price['+ currentRowId +']" class="form-control text-end" value="' + _parseFix(recordObject.sale_price) + '">';
+        var inputUnitPrice  = '<input type="text" name="sale_price['+ currentRowId +']" '+ readonly +' class="form-control text-end" value="' + _parseFix(recordObject.sale_price) + '">';
         var hiddenTotalUnitPrice  = '<input type="hidden" name="total_sale_price['+ currentRowId +']" class="form-control" value="' + recordObject.total_price + '">';
 
         var unitSelectionBox = `<input type="hidden" name='conversion_rate[${currentRowId}]' data-base-unit-id='${recordObject.base_unit_id}' data-base-price='${recordObject.sale_price}' value='${recordObject.conversion_rate}'>`;
@@ -364,7 +369,7 @@
             unitSelectionBox +=generateUnitSelectionBox(recordObject.unitList, currentRowId, recordObject.selected_unit_id);
 
         var inputDiscount = '<div class="input-group">';
-            inputDiscount +='<input type="text" name="discount['+ currentRowId +']" class="form-control" value="' + (recordObject.sale_price_discount ? _parseFix(recordObject.sale_price_discount) : 0) + '"' + (!allowUserToSaleDiscount ? ' readonly' : '') + '>';
+            inputDiscount +='<input type="text" name="discount['+ currentRowId +']" '+ readonly +' class="form-control" value="' + (recordObject.sale_price_discount ? _parseFix(recordObject.sale_price_discount) : 0) + '"' + (!allowUserToSaleDiscount ? ' readonly' : '') + '>';
             inputDiscount +='<button class="btn btn-outline-secondary btn_discount_type" type="button" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-original-title="'+_lang.clickTochange+'">'+getAutoDiscountTypeSymbol(recordObject.discount_type)+'</button></div>';
 
         var hiddenDiscountType  = '<input type="hidden" name="discount_type['+ currentRowId +']" class="form-control" value="' + recordObject.discount_type + '">';
@@ -398,20 +403,26 @@
             newRow.append('<td>' + hiddenWarehouseId + hiddenItemId + inputItemName + inputDescription + '</td>');
 
             newRow.append(`<td class="${(!itemSettings.enable_serial_tracking)?'d-none':''}">` + serialTracking + hiddenSerialNumbers + '</td>');
-            newRow.append(`<td class="${(!itemSettings.enable_batch_tracking)?'d-none':''}">` + inputBatchNumber + '</td>');
-            newRow.append(`<td class="${(!itemSettings.enable_mfg_date)?'d-none':''}">` + mfgDate + '</td>');
-            newRow.append(`<td class="${(!itemSettings.enable_exp_date)?'d-none':''}">` + expDate + '</td>');
+            if(itemAdditionalFields == true) {
+                newRow.append(`<td class="${(!itemSettings.enable_batch_tracking)?'d-none':''}">` + inputBatchNumber + '</td>');
+                newRow.append(`<td class="${(!itemSettings.enable_mfg_date)?'d-none':''}">` + mfgDate + '</td>');
+                newRow.append(`<td class="${(!itemSettings.enable_exp_date)?'d-none':''}">` + expDate + '</td>');
+            }
             newRow.append(`<td class="${(!itemSettings.enable_model)?'d-none':''}">` + modelNo + '</td>');
-            newRow.append(`<td class="${(!itemSettings.show_mrp)?'d-none':''}">` + mrp + '</td>');
+            if(itemAdditionalFields == true) {
+                newRow.append(`<td class="${(!itemSettings.show_mrp)?'d-none':''}">` + mrp + '</td>');
+            }
             newRow.append(`<td class="${(!itemSettings.enable_color)?'d-none':''}">` + color + '</td>');
             newRow.append(`<td class="${(!itemSettings.enable_size)?'d-none':''}">` + size + '</td>');
 
             newRow.append('<td>' + inputQuantity + '</td>');
             newRow.append('<td>' + unitSelectionBox + '</td>');
             newRow.append('<td>' + inputUnitPrice + hiddenTotalUnitPrice + '</td>');
-            newRow.append(`<td class="${(!itemSettings.show_discount)?'d-none':''}">` + inputDiscount + hiddenDiscountType + hiddenTotalPriceAfterDiscount + inputDiscountAmount + '</td>');
+            if(itemAdditionalFields == true) {
+                newRow.append(`<td class="${(!itemSettings.show_discount)?'d-none':''}">` + inputDiscount + hiddenDiscountType + hiddenTotalPriceAfterDiscount + inputDiscountAmount + '</td>');
 
-            newRow.append(`<td class="${noTaxFlag()?'d-none':''}">` + taxGroup + hiddenTaxType + inputTaxAmount + '</td>');
+                newRow.append(`<td class="${noTaxFlag()?'d-none':''}">` + taxGroup + hiddenTaxType + inputTaxAmount + '</td>');
+            }
             newRow.append('<td>' + inputTotal + '</td>');
 
             // Add action buttons
@@ -866,6 +877,7 @@
         initItemAutocomplete(itemSearchInputBoxId, {
             warehouse_id: currentWarehouse.val(),
             party_id: partyId.val(),
+            category_id: itemCategory.val(),
             module: 'sale',
             onSelect: function(item) {
                 addRow(item); // Your existing addRow logic
@@ -1080,6 +1092,22 @@
             ajaxGetRequest(url ,paymentId, 'delete-payment');
         }
     }
+    
+    /**
+     * Custom Page Loader: Show
+     * */
+    function showSpinner() {
+        const spinnerOverlay = document.getElementById('spinner-overlay');
+        spinnerOverlay.style.display = 'flex';
+    }
+
+    /**
+     * Custom Page Loader: Hide
+     * */
+    function hideSpinner() {
+        const spinnerOverlay = document.getElementById('spinner-overlay');
+        spinnerOverlay.style.display = 'none';
+    }
 
     function ajaxGetRequest(url, id, _from) {
           $.ajax({
@@ -1132,6 +1160,9 @@
         if (!selectedData) {
             return true;
         }
+
+        tableId.find('tbody tr').remove();
+        setBottomOfTableRecords();
 
         var customerType = (selectedData.is_wholesale_customer == 1) ? 'Wholesale' : 'Retail';
         iziToast.success({title: '', layout: 3, message: `<b>${customerType} Customer Selected</b>`});

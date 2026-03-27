@@ -1,102 +1,73 @@
 {{-- resources/views/store/list.blade.php --}}
 @extends('layouts.app')
+@section('css')
+<link href="{{ asset('assets/plugins/datatable/css/dataTables.bootstrap5.min.css') }}" rel="stylesheet">
+@endsection
 
 @section('title', __('app.stores') . ' — ' . $client->first_name . ' ' . $client->last_name)
 
 @section('content')
-<div class="page-breadcrumb d-none d-sm-flex align-items-center mb-3">
-    <div class="breadcrumb-title pe-3">{{ __('app.clients') }}</div>
-    <div class="ps-3">
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0 p-0">
-                <li class="breadcrumb-item">
-                    <a href="{{ route('client.list') }}"><i class="bx bx-home-alt"></i></a>
-                </li>
-                <li class="breadcrumb-item active" aria-current="page">
-                    {{ $client->first_name }} {{ $client->last_name }} — {{ __('app.stores') }}
-                </li>
-            </ol>
-        </nav>
-    </div>
-    <div class="ms-auto">
-        <a href="{{ route('store.create', ['client_id' => $client->id]) }}"
-           class="btn btn-primary px-4">
-            <i class="bx bx-plus"></i> {{ __('app.add_store') }}
-        </a>
-    </div>
-</div>
+    <!--start page wrapper -->
+    <div class="page-wrapper">
+        <div class="page-content">
+                <x-breadcrumb :langArray="[
+                                    'client.clients',
+                                    'client.list',
+                                ]"/>
 
-<div class="card">
-    <div class="card-body">
-        <div class="d-flex align-items-center mb-3">
-            <h5 class="mb-0">
-                <i class="bx bx-store me-2 text-primary"></i>
-                {{ __('app.stores_for') }}: <strong>{{ $client->first_name }} {{ $client->last_name }}</strong>
-            </h5>
-        </div>
+                <div class="card">
 
-        <div class="table-responsive">
-            <table id="storesTable" class="table table-striped table-bordered" style="width:100%">
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>{{ __('app.name') }}</th>
-                        <th>{{ __('app.code') }}</th>
-                        <th>{{ __('app.mobile') }}</th>
-                        <th>{{ __('app.email') }}</th>
-                        <th>{{ __('app.default') }}</th>
-                        <th>{{ __('app.status') }}</th>
-                        <th>{{ __('app.created_at') }}</th>
-                        <th>{{ __('app.action') }}</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
+                <div class="card-header px-4 py-3 d-flex justify-content-between">
+                    <!-- Left side -->
+                    <div>
+                        <h5 class="mb-0 text-uppercase">{{ $client->first_name }} {{ $client->last_name }} — {{ __('app.stores') }}</h5>
+                    </div>
+
+                    @can('client.create')
+                    <!-- Right side button -->
+                    <x-anchor-tag href="{{ route('store.create', ['client_id' => $client->id]) }}" text="{{ __('app.add_store') }}" class="btn btn-primary px-5" />
+                    @endcan
+
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <form class="row g-3 needs-validation" id="datatableForm" action="{{ route('client.delete') }}" enctype="multipart/form-data">
+                            {{-- CSRF Protection --}}
+                            @csrf
+                            @method('POST')
+							<table class="table table-striped table-bordered border w-100" id="datatable">
+								<thead>
+									<tr>
+                                        <th></th>
+                                        <th>#</th>
+                                        <th>{{ __('app.name') }}</th>
+                                        <th>{{ __('app.code') }}</th>
+                                        <th>{{ __('app.mobile') }}</th>
+                                        <th>{{ __('app.email') }}</th>
+                                        <th>{{ __('app.default') }}</th>
+                                        <th>{{ __('app.status') }}</th>
+                                        <th>{{ __('app.created_at') }}</th>
+                                        <th>{{ __('app.action') }}</th>
+                                    </tr>
+								</thead>
+							</table>
+                        </form>
+                    </div>
+                </div>
+            </div>
+                </div>
+            </div>
+            <!--end row-->
         </div>
     </div>
-</div>
 @endsection
 
-@push('scripts')
+@section('js')
 <script>
-$(document).ready(function () {
-    const table = $('#storesTable').DataTable({
-        processing: true,
-        serverSide: true,
-        ajax: {
-            url: '{{ route('store.datatableList', ['client_id' => $client->id]) }}',
-            type: 'GET',
-        },
-        columns: [
-            { data: 'DT_RowIndex',      name: 'DT_RowIndex', orderable: false, searchable: false },
-            { data: 'name',             name: 'name' },
-            { data: 'code',             name: 'code' },
-            { data: 'mobile',           name: 'mobile' },
-            { data: 'email',            name: 'email' },
-            { data: 'is_default_badge', name: 'is_default', orderable: false },
-            { data: 'status_badge',     name: 'status',     orderable: false },
-            { data: 'created_at',       name: 'created_at' },
-            { data: 'action',           name: 'action',     orderable: false, searchable: false },
-        ],
-    });
-
-    // Delete handler
-    $(document).on('click', '.deleteRequest', function () {
-        const id = $(this).data('delete-id');
-        if (confirm('{{ __('app.confirm_delete') }}')) {
-            $.ajax({
-                url: '{{ route('store.delete') }}',
-                method: 'POST',
-                data: {
-                    _token: '{{ csrf_token() }}',
-                    record_ids: [id],
-                },
-                success: function (res) {
-                    table.ajax.reload();
-                },
-            });
-        }
-    });
-});
+    var clientId = {{ $client->id }};
 </script>
-@endpush
+<script src="{{ versionedAsset('assets/plugins/datatable/js/jquery.dataTables.min.js') }}"></script>
+<script src="{{ versionedAsset('assets/plugins/datatable/js/dataTables.bootstrap5.min.js') }}"></script>
+<script src="{{ versionedAsset('custom/js/common/common.js') }}"></script>
+<script src="{{ versionedAsset('custom/js/store/store-list.js') }}"></script>
+@endsection

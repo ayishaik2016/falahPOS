@@ -60,6 +60,7 @@ class ItemTransaction extends Model
         'charge_amount',
 
         'total',
+        'company_id',
     ];
 
     /**

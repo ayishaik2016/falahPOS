@@ -69,6 +69,21 @@
                                         <x-label for="status" name="{{ __('app.status') }}" />
                                         <x-dropdown-status selected="" dropdownName='status'/>
                                     </div>
+                                    <div class="col-md-6">
+                                        <x-label for="store_id" name="{{ __('app.store') }}" />
+                                        <select name="store_id" class="form-select">
+                                            @php
+                                                if (is_null(auth()->user()->company_id)) {
+                                                    $accessibleStores = \App\Models\Store::all();
+                                                } else {
+                                                    $accessibleStores = \App\Models\Store::where('company_id', auth()->user()->company_id)->get();
+                                                }
+                                            @endphp
+                                            @foreach($accessibleStores as $store)
+                                                <option value="{{ $store->id }}">{{ $store->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                     <div class="col-md-12">
                                         <div class="form-check">
                                             <input class="form-check-input" type="checkbox" checked id="is_allowed_all_warehouses" name="is_allowed_all_warehouses">
